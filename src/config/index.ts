@@ -17,6 +17,7 @@ export interface AppConfig {
   allowedPaths: string[];
   outputDir: string;
   maxBatchFiles: number;
+  download: { maxBytes: number; timeoutMs: number; allowPrivate: boolean };
   logLevel: string;
   logDir?: string;
 }
@@ -74,6 +75,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, argv: string[] 
     allowedPaths,
     outputDir: allowedPaths[0]!,
     maxBatchFiles: int(env.MAX_BATCH_FILES, 200, 1, 10_000),
+    download: {
+      maxBytes: int(env.MAX_DOWNLOAD_MB, 50, 1, 2048) * 1024 * 1024,
+      timeoutMs: int(env.DOWNLOAD_TIMEOUT_MS, 30_000, 1000, 600_000),
+      allowPrivate: env.ALLOW_PRIVATE_DOWNLOADS === "true",
+    },
     logLevel: env.LOG_LEVEL ?? "info",
     logDir: env.LOG_DIR ? resolve(PROJECT_ROOT, env.LOG_DIR) : undefined,
   };

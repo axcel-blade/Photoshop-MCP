@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+- `download_image` tool: download PNG, JPEG, GIF, WebP, BMP, TIFF, AVIF, HEIC or SVG images from http(s) URLs into the sandbox (format detected from bytes, size cap, timeout, private-network/SSRF blocking re-checked on every redirect), optionally placing or opening them.
+- `place_image` and `import_image` accept `url` as an alternative to `path`.
+- Settings `MAX_DOWNLOAD_MB`, `DOWNLOAD_TIMEOUT_MS`, `ALLOW_PRIVATE_DOWNLOADS`.
+
 ## 1.0.0 — 2026-11-25
 
 ### Added

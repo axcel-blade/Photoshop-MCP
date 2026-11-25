@@ -10,6 +10,9 @@ Settings are environment variables. The server loads `.env` from the project roo
 | `PHOTOSHOP_AUTO_LAUNCH` | `true` | Start Photoshop on the first call if it is not running (`false` to fail with `PHOTOSHOP_NOT_RUNNING`) |
 | `ALLOWED_PATHS` | `output;%USERPROFILE%\Documents\PhotoshopMCP` | `;`-separated sandbox roots; relative paths resolve against the first |
 | `MAX_BATCH_FILES` | `200` | Max files per batch tool |
+| `MAX_DOWNLOAD_MB` | `50` | Max size of one image downloaded by `download_image` or `place_image`/`import_image` with `url` |
+| `DOWNLOAD_TIMEOUT_MS` | `30000` | Timeout for one image download (all redirects included) |
+| `ALLOW_PRIVATE_DOWNLOADS` | `false` | Allow downloads from localhost/private-network addresses (blocked by default to prevent SSRF) |
 | `MCP_TRANSPORT` | `stdio` | `stdio` or `http` (also `--transport http`) |
 | `MCP_HTTP_HOST` | `127.0.0.1` | HTTP bind address |
 | `MCP_HTTP_PORT` | `3333` | HTTP port |
