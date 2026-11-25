@@ -1,26 +1,30 @@
 :root {
-  --bg: #fbfaf7;
+  --bg: #f6f9fc;
   --surface: #ffffff;
-  --text: #1d1b18;
-  --muted: #625d55;
-  --line: #e6e1d8;
-  --accent: #d9570d;
+  --text: #0b1a2a;
+  --muted: #4f6175;
+  --line: #dbe4ee;
+  --accent: #0b6bcb;
   --accent-ink: #ffffff;
-  --code-bg: #f3f0ea;
+  --code-bg: #edf3f9;
+  --logo-bg: #001e36;
+  --logo-ink: #31a8ff;
   --radius: 10px;
   --max: 1120px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #14130f;
-    --surface: #1c1a16;
-    --text: #efebe4;
-    --muted: #a59f94;
-    --line: #2f2c26;
-    --accent: #ff8a3d;
-    --accent-ink: #1a1208;
-    --code-bg: #221f1a;
+    --bg: #001e36;
+    --surface: #04284a;
+    --text: #e6f1fc;
+    --muted: #9bb3cb;
+    --line: #133a5e;
+    --accent: #31a8ff;
+    --accent-ink: #001e36;
+    --code-bg: #08305a;
+    --logo-bg: #31a8ff;
+    --logo-ink: #001e36;
     color-scheme: dark;
   }
 }
@@ -47,7 +51,7 @@ code, pre, kbd { font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, C
   max-width: var(--max); margin: 0 auto; padding: 14px 16px;
 }
 .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text); text-decoration: none; }
-.brand svg { color: var(--accent); }
+.brand svg { flex: none; }
 .topbar nav { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .topbar nav a { color: var(--muted); text-decoration: none; font-size: 15px; }
 .topbar nav a:hover { color: var(--text); }
@@ -84,6 +88,12 @@ code, pre, kbd { font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, C
   border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 8px;
   padding: 0 12px; font: inherit; font-size: 14px; cursor: pointer;
 }
+.steps { margin: 10px 0 0; padding-left: 1.2rem; color: var(--muted); font-size: 15px; }
+.steps li { margin: 4px 0; }
+.steps strong, .steps kbd { color: var(--text); }
+.steps code { background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; background: var(--surface); font-size: 0.85em; }
+.stack { margin-top: 14px; }
 .note { color: var(--muted); font-size: 14px; margin-top: 12px; }
 
 .features { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }

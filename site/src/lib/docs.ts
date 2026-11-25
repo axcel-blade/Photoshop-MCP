@@ -49,8 +49,10 @@ export const docs: Doc[] = Object.entries(files)
   .sort((a, b) => GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group) || a.order - b.order || a.title.localeCompare(b.title));
 
 export const toolCount = (): number => {
-  const tools = docs.find((d) => d.file === "TOOLS");
-  return tools ? tools.entry.getHeadings().filter((h) => h.depth === 2).length : 0;
+  // TOOLS.md is generated with a "**N tools**" summary line; its headings are modules, not tools.
+  const raw = Object.values(import.meta.glob<string>("../../../docs/TOOLS.md", { query: "?raw", import: "default", eager: true }))[0];
+  const m = raw?.match(/\*\*(\d+) tools\*\*/);
+  return m ? Number(m[1]) : 0;
 };
 
 /** Prefix a site path with the configured base ("/Photoshop-MCP"). */

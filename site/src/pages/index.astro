@@ -26,23 +26,52 @@ const tools = toolCount();
     <div class="install">
       <div class="card">
         <h3>Windows</h3>
-        <p>PowerShell. Installs to <code>%LOCALAPPDATA%\PhotoshopMCP</code> and registers it with your AI clients.</p>
+        <p>Installs the server to <code>%LOCALAPPDATA%\PhotoshopMCP</code> and registers it with your AI clients.</p>
+        <ol class="steps">
+          <li>Press <kbd>Win</kbd>+<kbd>R</kbd>, type <strong>powershell</strong> and press <kbd>Enter</kbd> (no admin needed).</li>
+          <li>Click <strong>Copy</strong> below, then paste into PowerShell with a right-click or <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
+          <li>Press <kbd>Enter</kbd> and wait for it to finish.</li>
+        </ol>
         <div class="cmd"><code>{win}</code><button type="button" data-copy={win}>Copy</button></div>
       </div>
       <div class="card">
         <h3>macOS</h3>
-        <p>Terminal. Installs to <code>~/Library/Application Support/PhotoshopMCP</code> and registers it with your AI clients.</p>
+        <p>Installs the server to <code>~/Library/Application Support/PhotoshopMCP</code> and registers it with your AI clients.</p>
+        <ol class="steps">
+          <li>Press <kbd>Cmd</kbd>+<kbd>Space</kbd>, type <strong>Terminal</strong> and press <kbd>Enter</kbd>.</li>
+          <li>Click <strong>Copy</strong> below, then paste into Terminal with <kbd>Cmd</kbd>+<kbd>V</kbd>.</li>
+          <li>Press <kbd>Enter</kbd> and wait for it to finish.</li>
+        </ol>
         <div class="cmd"><code>{mac}</code><button type="button" data-copy={mac}>Copy</button></div>
       </div>
     </div>
     <p class="note">
       Configures every MCP client it finds: Claude Desktop, Claude Code, Cursor, Windsurf, VS Code (Copilot), Cline, Roo Code,
-      Gemini CLI and Codex. Existing configs are merged, with a backup. <a href={href("/docs/configuration/#mcp-clients-the-installers-configure")}>Details</a>.
+      Gemini CLI and Codex. Existing configs are merged, with a backup. Scripts: <a href={href("/install.ps1")}>install.ps1</a>,
+      <a href={href("/install.sh")}>install.sh</a>. <a href={href("/docs/configuration/#mcp-clients-the-installers-configure")}>Details</a>.
     </p>
-    <p class="note">
-      Needs Node.js 20+ and Adobe Photoshop (tested with Photoshop 2027). Read a script before piping it to a shell: <a href={href("/install.ps1")}>install.ps1</a>,
-      <a href={href("/install.sh")}>install.sh</a>. Manual setup, ChatGPT and remote HTTP: <a href={href("/docs/installation/")}>installation guide</a>.
-    </p>
+
+    <div class="card stack">
+      <h3>After install</h3>
+      <ol class="steps">
+        <li>Start <strong>Adobe Photoshop</strong> (tested with Photoshop 2027). Nothing needs installing inside Photoshop.</li>
+        <li>On macOS, allow Terminal or Node to control Photoshop when asked (System Settings → Privacy &amp; Security → Automation).</li>
+        <li>Fully quit and reopen your MCP client, then ask: <em>"Check the Photoshop status, then make a 1080×1080 poster that says 'Summer Sale'."</em></li>
+      </ol>
+    </div>
+
+    <div class="card stack">
+      <h3>Manual install</h3>
+      <p>Needs Git, Node.js 20+ and pnpm (via Corepack).</p>
+      <ol class="steps">
+        <li>Clone the repo: <code>git clone {REPO}.git</code>, then <code>cd Photoshop-MCP</code>.</li>
+        <li>Install and build: <code>corepack enable</code>, <code>pnpm install</code>, <code>pnpm build</code>.</li>
+        <li>Register it with Claude Desktop: <code>scripts\install.ps1 -ConfigureClaude</code> on Windows or <code>./scripts/install.sh --configure-claude</code> on macOS.</li>
+        <li>Check the setup: <code>scripts\diagnostics.ps1</code> or <code>./scripts/diagnostics.sh</code>.</li>
+        <li>Then follow the <strong>After install</strong> steps above.</li>
+      </ol>
+      <p class="note">Full guide, ChatGPT and remote HTTP: <a href={href("/docs/installation/")}>installation guide</a>.</p>
+    </div>
   </section>
 
   <section class="section" aria-labelledby="what-h">
