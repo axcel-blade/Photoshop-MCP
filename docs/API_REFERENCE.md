@@ -2,7 +2,7 @@
 
 ## MCP surface
 
-- **Tools:** 294 — full per-tool reference with input schemas in [TOOLS.md](TOOLS.md) (`pnpm docs:tools` regenerates it).
+- **Tools:** 296 — full per-tool reference with input schemas in [TOOLS.md](TOOLS.md) (`pnpm docs:tools` regenerates it).
 - **Result envelope:** `{ ok, tool, source: "photoshop"|"mock"|"server", data, warnings }`; errors `{ ok:false, tool, error:{ code, message, details } }` with `isError: true`.
 - **Conventions:** coordinates and sizes are **document pixels**, origin top-left. Layers: `{ id }` (stable, preferred) or `{ name }` (first match top-down); omitted = active layer. Documents: `{ id }` / `{ name }`; omitted = active document. Colors are hex. Opacity 0–100.
 

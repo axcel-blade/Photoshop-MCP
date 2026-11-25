@@ -142,8 +142,11 @@ export function registerAll(server: McpServer, ctx: ToolContext): void {
       (async (rawArgs: Record<string, unknown>): Promise<CallToolResult> => {
         const started = Date.now();
         try {
-          const { background, ...args } = rawArgs as Record<string, unknown> & { background?: boolean };
-          if (longRunning && background) {
+          // Only long-running tools own `background` (the job flag); for others (e.g. create_document) it is a real argument.
+          let args: Record<string, unknown> = rawArgs;
+          let background = false;
+          if (longRunning) ({ background = false, ...args } = rawArgs as Record<string, unknown> & { background?: boolean });
+          if (background) {
             const job = ctx.jobs.start(def.name, () => ctx.bridge.withTimeoutScope(ctx.config.photoshop.jobTimeoutMs, () => TOOL_HANDLERS.get(def.name)!(args, ctx)));
             return toCallResult(def.name, { data: { jobId: job.id, state: job.state, queuedJobs: ctx.jobs.active, next: `Call wait_for_job { jobId: "${job.id}" } or get_job to collect the result.` }, source: "server" }, ctx);
           }

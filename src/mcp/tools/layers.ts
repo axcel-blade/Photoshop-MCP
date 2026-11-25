@@ -2,6 +2,9 @@ import { z } from "zod";
 import { LayerRef } from "../../schemas/index.js";
 import { cmd, DESTRUCTIVE, READ_ONLY, requireConfirm, tool, WRITE } from "./registry.js";
 import { blend, color, confirm, doc, layer, name, opacity } from "./args.js";
+import { PsMcpError } from "../../utils/errors.js";
+import { alignMoves, distributeMoves, unionBox, type Box, type Item, type Move } from "../../utils/align.js";
+import type { ToolContext, ToolOutput } from "./registry.js";
 
 const M = "layers";
 const layers = z.array(LayerRef).min(1).max(500);
@@ -39,6 +42,47 @@ export function registerLayerTools(): void {
     name: "move_layer", module: M, description: "Move a layer's pixels: relative (dx, dy) or so its bounds' top-left lands at (x, y).", annotations: WRITE, commands: ["layer.translate"],
     input: { doc, layer, dx: z.number().optional(), dy: z.number().optional(), x: z.number().optional(), y: z.number().optional() },
     handler: (a, ctx) => cmd(ctx, "layer.translate", a),
+  });
+  tool({
+    name: "align_layers", module: M,
+    description: "Align layers (or groups) by an edge or center: to the canvas, to the bounding box of the layers themselves (default for 2+ layers), or to a reference layer. Moves only; sizes and order are untouched.",
+    annotations: WRITE, commands: ["layer.list", "doc.info", "layer.translateMany"],
+    input: {
+      doc, layers,
+      align: z.enum(["left", "centerHorizontal", "right", "top", "centerVertical", "bottom"]),
+      to: z.enum(["canvas", "layers", "reference"]).optional().describe("Default: canvas for one layer, layers (their combined bounds) for several"),
+      reference: LayerRef.optional().describe("Key layer to align to (with to: reference); it does not move"),
+      margin: z.number().min(0).default(0).describe("Inset from the target edge (edge alignments only)"),
+    },
+    handler: async (a, ctx) => {
+      const to = a.to ?? (a.reference ? "reference" : a.layers.length > 1 ? "layers" : "canvas");
+      const all = await listItems(ctx, a.doc);
+      const items = resolve(all, a.layers);
+      let target: Box;
+      if (to === "canvas") target = await canvasBox(ctx, a.doc);
+      else if (to === "reference") {
+        if (!a.reference) throw new PsMcpError("VALIDATION_ERROR", "to: reference needs a reference layer");
+        target = resolve(all, [a.reference])[0]!.bounds;
+      } else target = unionBox(items);
+      const refId = to === "reference" && a.reference ? resolve(all, [a.reference])[0]!.id : undefined;
+      return applyMoves(ctx, a.doc, alignMoves(items.filter((i) => i.id !== refId), a.align, target, a.margin), { align: a.align, to, target });
+    },
+  });
+  tool({
+    name: "distribute_layers", module: M,
+    description: "Space layers evenly along an axis (keeping their order on it): equal gaps or equal center distances between the outermost layers, or a fixed gap starting from the first layer.",
+    annotations: WRITE, commands: ["layer.list", "layer.translateMany"],
+    input: {
+      doc, layers: z.array(LayerRef).min(2).max(500),
+      axis: z.enum(["horizontal", "vertical"]),
+      by: z.enum(["gaps", "centers"]).default("gaps"),
+      spacing: z.number().min(0).optional().describe("Fixed gap in px between neighbours; the first layer stays put"),
+    },
+    handler: async (a, ctx) => {
+      const items = resolve(await listItems(ctx, a.doc), a.layers);
+      if (a.spacing === undefined && items.length < 3) throw new PsMcpError("VALIDATION_ERROR", "Even distribution needs 3+ layers (or give spacing for 2)");
+      return applyMoves(ctx, a.doc, distributeMoves(items, a.axis, { by: a.by, spacing: a.spacing }), { axis: a.axis, by: a.spacing !== undefined ? "spacing" : a.by });
+    },
   });
   tool({
     name: "reorder_layers", module: M, description: "Change stacking order: top, bottom, up, down, or above/below another layer.", annotations: WRITE, commands: ["layer.arrange"],
@@ -88,4 +132,34 @@ export function registerLayerTools(): void {
       return { data: { id: l.id, name: l.name, bounds: l.bounds }, warnings: out.warnings };
     },
   });
+}
+
+type Listed = Item & { name: string };
+type Ref = { id?: number; name?: string };
+
+async function listItems(ctx: ToolContext, d: unknown): Promise<Listed[]> {
+  const out = await cmd(ctx, "layer.list", { doc: d });
+  return (out.data as { layers: Listed[] }).layers;
+}
+
+/** Layer refs → listed layers (name refs take the topmost match, like the rest of the tools). */
+function resolve(all: Listed[], refs: Ref[]): Listed[] {
+  return refs.map((r) => {
+    const hit = r.id !== undefined ? all.find((l) => l.id === r.id) : all.find((l) => l.name === r.name);
+    if (!hit) throw new PsMcpError("LAYER_NOT_FOUND", `Layer not found: ${JSON.stringify(r)}`);
+    return hit;
+  });
+}
+
+async function canvasBox(ctx: ToolContext, d: unknown): Promise<Box> {
+  const info = await cmd(ctx, "doc.info", { doc: d });
+  const doc = (info.data as { document: { width: number; height: number } }).document;
+  return { left: 0, top: 0, right: doc.width, bottom: doc.height };
+}
+
+async function applyMoves(ctx: ToolContext, d: unknown, moves: Move[], meta: Record<string, unknown>): Promise<ToolOutput> {
+  const todo = moves.filter((m) => m.dx !== 0 || m.dy !== 0);
+  if (!todo.length) return { data: { ...meta, moved: [], unchanged: moves.map((m) => m.id) } };
+  const out = await cmd(ctx, "layer.translateMany", { doc: d, moves: todo });
+  return { data: { ...meta, moves: todo, layers: (out.data as { layers: unknown[] }).layers }, warnings: out.warnings };
 }

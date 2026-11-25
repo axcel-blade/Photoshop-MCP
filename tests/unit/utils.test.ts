@@ -5,6 +5,7 @@ import { contrastRatio, hexToRgb, readableOn, rgbToHex } from "../../src/shared.
 import { FireflyProvider, ProviderRegistry, RemoveBgProvider } from "../../src/ai/providers.js";
 import { readImageMeta } from "../../src/utils/image-meta.js";
 import { encodePng, regionMaskPng } from "../../src/utils/png.js";
+import { alignMoves, distributeMoves } from "../../src/utils/align.js";
 import { sandbox } from "../helpers.js";
 
 describe("colors", () => {
@@ -74,5 +75,28 @@ describe("AI providers", () => {
     const p = new RemoveBgProvider("k-123", http);
     await expect(p.removeBackground(new Uint8Array([1]), "image/png")).rejects.toMatchObject({ code: "PROVIDER_ERROR" });
     await expect(p.removeBackground(new Uint8Array([1]), "image/png")).rejects.not.toThrow(/k-123/);
+  });
+});
+
+describe("align / distribute geometry", () => {
+  const box = (l: number, t: number, w: number, h: number) => ({ left: l, top: t, right: l + w, bottom: t + h });
+  const items = [{ id: 1, bounds: box(10, 0, 100, 50) }, { id: 2, bounds: box(300, 40, 50, 20) }, { id: 3, bounds: box(120, 90, 60, 10) }];
+  it("aligns edges and centers to a target", () => {
+    const canvas = box(0, 0, 1000, 500);
+    expect(alignMoves(items, "left", canvas, 20).map((m) => m.dx)).toEqual([10, -280, -100]);
+    expect(alignMoves(items, "centerHorizontal", canvas).map((m) => m.dx)).toEqual([440, 175, 350]);
+    expect(alignMoves(items, "bottom", canvas).map((m) => m.dy)).toEqual([450, 440, 400]);
+    expect(alignMoves(items, "top", canvas).every((m) => m.dx === 0)).toBe(true);
+  });
+  it("distributes with equal gaps, equal centers or a fixed gap, keeping outer items in place", () => {
+    const gaps = distributeMoves(items, "horizontal");
+    const after = items.map((it) => { const m = gaps.find((g) => g.id === it.id)!; return { l: it.bounds.left + m.dx, r: it.bounds.right + m.dx }; });
+    expect(after[0]!.l).toBe(10);
+    expect(after[1]!.r).toBe(350);
+    expect(after[2]!.l - after[0]!.r).toBe(after[1]!.l - after[2]!.r);
+    const centers = distributeMoves(items, "horizontal", { by: "centers" });
+    expect(centers.find((m) => m.id === 3)!.dx).toBe(Math.round((60 + 325) / 2 - 150));
+    const fixed = distributeMoves(items, "vertical", { spacing: 10 });
+    expect(fixed.map((m) => [m.id, m.dy])).toEqual([[1, 0], [2, 20], [3, 0]]);
   });
 });

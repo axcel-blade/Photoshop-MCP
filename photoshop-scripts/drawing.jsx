@@ -23,10 +23,13 @@ MCP.strokeStyle = function (s) {
 };
 
 MCP.contentLayer = function (fill, shape, stroke) {
+  MCP.aboveClipChain(app.activeDocument);
   var using = { _obj: "contentLayer", type: { _obj: "solidColorLayer", color: MCP.rgbDesc(fill || "#000000") } };
   if (shape) using.shape = shape;
   var ss = MCP.strokeStyle(stroke);
-  if (ss) using.strokeStyle = ss;
+  // Stroke-only shape: no fill given (or "none") -> disable the fill instead of painting black.
+  var noFill = (!fill || fill === "none") && stroke && stroke !== "none";
+  if (ss) { if (noFill) ss.fillEnabled = false; using.strokeStyle = ss; }
   return { _obj: "make", _target: [{ _ref: "contentLayer" }], using: using };
 };
 
@@ -38,6 +41,7 @@ MCP.ops["text.create"] = function (p) {
   var d = MCP.getDoc(p.doc);
   var font = p.font || "ArialMT", requested = font;
   if (!MCP.fontExists(font)) { MCP.warn("Font \"" + font + "\" is not installed; used ArialMT instead."); font = "ArialMT"; }
+  MCP.aboveClipChain(d);
   var l = d.artLayers.add();
   l.kind = LayerKind.TEXT;
   var t = l.textItem;
@@ -161,6 +165,7 @@ MCP.ops["fill.solid"] = function (p) {
 
 MCP.ops["fill.gradient"] = function (p) {
   var d = MCP.getDoc(p.doc), g = p.gradient;
+  MCP.aboveClipChain(d);
   if (p.bounds) MCP.setSel(MCP.rectTo(p.bounds, "rectangle"));
   var type = { radial: "radial", angle: "angle", reflected: "reflected", diamond: "diamond" }[g.type] || "linear";
   MCP.play({

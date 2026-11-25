@@ -102,8 +102,8 @@ export function registerCompositingTools(): void {
       await seq.run("background", "image.place", { path: inputPath(ctx, a.background), x: 0, y: 0, width: a.width, height: a.height, fit: "cover", name: "Background Plate" });
       const box = a.subjectBox ?? { x: a.width * 0.25, y: a.height * 0.2, width: a.width * 0.5, height: a.height * 0.75 };
       const sub = await seq.run("subject", "image.place", { path: inputPath(ctx, a.subject), ...box, fit: "contain", name: "Subject" });
-      const sid = idOf(sub);
-      const cut = await removeBackground(ctx, undefined, { id: sid });
+      const cut = await removeBackground(ctx, undefined, { id: idOf(sub) });
+      const sid = (cut.data as { layerId: number }).layerId; // the cut-out may live on a new wrapping smart object
       const parts: ToolOutput[] = [cut];
       if (a.matchColors) parts.push(await matchColors(ctx, { layer: { id: sid }, referenceLayer: { name: "Background Plate" }, strength: 60 }));
       if (a.shadow) parts.push(await realisticShadow(ctx, undefined, { id: sid }, { opacity: 45, blur: 18, squash: 25, offsetY: 0 }));
@@ -167,8 +167,9 @@ export function registerCompositingTools(): void {
       await seq.run("document", "doc.create", { name: "Product Composite", width: a.width, height: a.height });
       await seq.run("backdrop", "fill.gradient", { name: "Backdrop", gradient: { type: "radial", angle: 90, stops: [{ color: a.backdrop[0], location: 0 }, { color: a.backdrop[1], location: 100 }] } });
       const p = await seq.run("product", "image.place", { path: inputPath(ctx, a.product), x: a.width * 0.25, y: a.height * 0.12, width: a.width * 0.5, height: a.height * 0.6, fit: "contain", name: "Product" });
-      const id = idOf(p);
-      const parts = [await removeBackground(ctx, undefined, { id })];
+      const cut = await removeBackground(ctx, undefined, { id: idOf(p) });
+      const id = (cut.data as { layerId: number }).layerId; // the cut-out may live on a new wrapping smart object
+      const parts = [cut];
       if (a.reflection) parts.push(await reflection(ctx, undefined, { id }, 28, 2));
       parts.push(await realisticShadow(ctx, undefined, { id }, { opacity: 55, blur: 14, squash: 12, offsetY: 4 }));
       if (a.glow) parts.push(await cmd(ctx, "layer.effects", { layer: { id }, effects: { outerGlow: { color: a.glow, opacity: 40, size: 40, spread: 0, blendMode: "screen" } } }));

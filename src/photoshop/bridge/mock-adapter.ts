@@ -271,6 +271,16 @@ export class MockAdapter implements BridgeAdapter {
         this.hist(d, "Move");
         return { layer: this.out(l) };
       }
+      case "layer.translateMany": {
+        const d = this.doc(p);
+        const moved = (p.moves as { id: number; dx: number; dy: number }[]).map((m) => {
+          const l = this.layer(d, { id: m.id });
+          l.bounds = { left: l.bounds.left + m.dx, top: l.bounds.top + m.dy, right: l.bounds.right + m.dx, bottom: l.bounds.bottom + m.dy };
+          return this.out(l);
+        });
+        this.hist(d, "Align");
+        return { layers: moved };
+      }
       case "layer.transform": {
         const d = this.doc(p);
         const l = this.layer(d, p.layer);
@@ -440,6 +450,12 @@ export class MockAdapter implements BridgeAdapter {
       case "select.info": {
         const d = this.doc(p);
         return d.selection ? { hasSelection: true, bounds: { ...d.selection, width: d.selection.right - d.selection.left, height: d.selection.bottom - d.selection.top } } : { hasSelection: false };
+      }
+      case "smartObject.maskSubject": {
+        const d = this.doc(p);
+        const l = this.layer(d, p.layer);
+        if (l.kind !== "smartObject") throw new PsMcpError("VALIDATION_ERROR", `"${l.name}" is not a smart object`);
+        return { layer: { ...l }, subjectInContents: l.bounds };
       }
       case "mask.create": case "mask.vector": case "mask.delete": case "mask.invert": case "mask.apply": case "mask.refine": case "mask.gradient": {
         const d = this.doc(p);

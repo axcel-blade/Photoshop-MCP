@@ -56,6 +56,34 @@ describe("layer operations", () => {
   });
 });
 
+describe("align and distribute", () => {
+  it("aligns to canvas, layers and a reference, and distributes", async () => {
+    await t.call("create_document", { width: 1000, height: 600 });
+    const mk = async (name: string, l: number, tp: number, r: number, b: number) => (await t.call("create_rectangle", { name, bounds: { left: l, top: tp, right: r, bottom: b }, fill: "#000000" })).data.layer.id as number;
+    const a = await mk("A", 10, 10, 110, 60), b = await mk("B", 400, 200, 450, 220), c = await mk("C", 700, 100, 760, 110);
+    const box = async (id: number) => (await t.call("get_layer_bounds", { layer: { id } })).data.bounds;
+    await t.call("align_layers", { layers: [{ id: a }], align: "centerHorizontal" });
+    expect((await box(a)).left).toBe(450);
+    await t.call("align_layers", { layers: [{ id: a }, { id: b }, { id: c }], align: "top" });
+    expect([(await box(a)).top, (await box(b)).top, (await box(c)).top]).toEqual([10, 10, 10]);
+    await t.call("align_layers", { layers: [{ id: b }], align: "right", reference: { id: c } });
+    expect((await box(b)).right).toBe(760);
+    await t.call("align_layers", { layers: [{ id: c }], align: "bottom", to: "canvas", margin: 40 });
+    expect((await box(c)).bottom).toBe(560);
+    expect((await t.call("distribute_layers", { layers: [{ id: a }, { id: b }], axis: "horizontal" })).error.code).toBe("VALIDATION_ERROR");
+    await t.call("move_layer", { layer: { id: a }, x: 0, y: 0 });
+    await t.call("move_layer", { layer: { id: b }, x: 900, y: 0 });
+    await t.call("move_layer", { layer: { id: c }, x: 100, y: 0 });
+    const r = await t.call("distribute_layers", { layers: [{ id: a }, { id: b }, { id: c }], axis: "horizontal" });
+    expect(r.isError).toBe(false);
+    const [ba, bb, bc] = [await box(a), await box(b), await box(c)];
+    expect(ba.left).toBe(0);
+    expect(bb.right).toBe(950);
+    expect(bc.left - ba.right).toBe(bb.left - bc.right);
+    expect((await t.call("align_layers", { layers: [{ name: "Nope" }], align: "left" })).error.code).toBe("LAYER_NOT_FOUND");
+  });
+});
+
 describe("text operations", () => {
   it("add, edit, style, replace across layers", async () => {
     await t.call("create_document", { width: 1000, height: 500 });

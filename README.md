@@ -8,7 +8,7 @@ MCP client ──stdio / HTTP──► MCP server (Node) ──► PhotoshopBrid
                                                                           ──► photoshop-scripts/*.jsx (ExtendScript + Action Manager)
 ```
 
-- **294 tools** in 19 modules ([docs/TOOLS.md](docs/TOOLS.md)), 10 resources, 8 prompts.
+- **296 tools** in 19 modules ([docs/TOOLS.md](docs/TOOLS.md)), 10 resources, 8 prompts.
 - **Nothing to install inside Photoshop:** no plugin or panel. Each call runs one allowlisted ExtendScript op through Photoshop's documented scripting entry points.
 - **Honest by design:** every result says whether Photoshop (`source: "photoshop"`), the mock adapter, or the server produced it. Features Photoshop does not expose to scripts (Liquify, Lens Blur, in-app Generative Fill, Neural Filters, brush presets…) are reported as `unsupported` with an alternative instead of being faked.
 - **Non-destructive defaults:** adjustment layers, smart filters, masks and working-copy layers.
@@ -56,7 +56,7 @@ Same single-package layout as [Illustrator-MCP](https://github.com/axcel-blade/I
 |---|---|
 | `src/index.ts`, `src/server.ts` | Entry point and MCP server assembly |
 | `src/config` | Environment / `.env` configuration |
-| `src/mcp/tools`, `src/mcp/resources`, `src/mcp/prompts` | 294 tools, 10 resources, 8 prompts |
+| `src/mcp/tools`, `src/mcp/resources`, `src/mcp/prompts` | 296 tools, 10 resources, 8 prompts |
 | `src/photoshop/bridge` | `PhotoshopBridge`: op allowlist, queue, script builder, COM / AppleScript / mock adapters, preview and pixel-stat decoding |
 | `photoshop-scripts/` | ExtendScript op library (`bootstrap.jsx` with the batchPlay-JSON → ActionDescriptor converter `MCP.toDesc`), `run-jsx.ps1`, `run-jsx.applescript` |
 | `src/design-engine`, `src/schemas`, `data/` | Design planner, templates, validator, compiler, composition analysis, UI auto layout, design knowledge |

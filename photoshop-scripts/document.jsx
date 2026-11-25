@@ -68,6 +68,15 @@ MCP.ops["doc.create"] = function (p) {
     d.selection.fill(MCP.solid("#000000"));
     d.selection.deselect();
   }
+  if (p.background === "transparent" && d.layers.length && d.layers[d.layers.length - 1].isBackgroundLayer) {
+    /* Some Photoshop releases ignore DocumentFill.TRANSPARENT and give an opaque white Background. */
+    var bg = d.layers[d.layers.length - 1];
+    bg.isBackgroundLayer = false;
+    bg.name = "Layer 1";
+    d.selection.selectAll();
+    d.selection.clear();
+    d.selection.deselect();
+  }
   return { document: MCP.docInfo(d) };
 };
 

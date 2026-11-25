@@ -74,7 +74,7 @@ export function registerExportTools(): void {
       const files = [];
       for (const s of a.sizes) {
         if (!s.width && !s.height) throw new PsMcpError("VALIDATION_ERROR", "Each size needs width or height");
-        const r = await exportAs(ctx, { doc: a.doc, path: join(dir, `${a.baseName}${s.suffix ?? `-${s.width ?? s.height}`}.${ext}`), overwrite: a.overwrite, width: s.width, height: s.height }, a.format, { quality: a.quality });
+        const r = await exportAs(ctx, { doc: a.doc, path: join(dir, `${a.baseName}${sizeSuffix(s)}.${ext}`), overwrite: a.overwrite, width: s.width, height: s.height }, a.format, { quality: a.quality });
         files.push(r.data);
       }
       return { data: { files } };
@@ -98,4 +98,10 @@ export function registerExportTools(): void {
       return { data: { folder: dir, manifest, files }, warnings: check.warnings };
     },
   });
+}
+
+/** "-ig" for suffix "ig" (a separator is added unless the suffix starts with one); "-1080" when there is none. */
+function sizeSuffix(s: { width?: number; height?: number; suffix?: string }): string {
+  if (s.suffix === undefined) return `-${s.width ?? s.height}`;
+  return s.suffix === "" || /^[-_.]/.test(s.suffix) ? s.suffix : `-${s.suffix}`;
 }

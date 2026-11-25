@@ -153,7 +153,55 @@ MCP.ops["select.subject"] = function (p) {
   MCP.play({ _obj: "autoCutout", sampleAllLayers: Boolean(p.sampleAllLayers) }, "Select Subject");
   var r = MCP.selResult(d);
   if (!r.hasSelection) MCP.fail("PHOTOSHOP_ERROR", "Select Subject found no subject");
+  if (!p.sampleAllLayers) {
+    /* On a layer smaller than the canvas, Select Subject tends to pick the layer's whole rectangle (the photo itself). */
+    var l = d.activeLayer, lb = MCP.boundsOf(l.bounds), sb = r.bounds, W = d.width.as("px"), H = d.height.as("px");
+    var near = function (a, b) { return Math.abs(a - b) <= 4; };
+    /* Selections are clipped to the canvas, so compare against the visible part of the layer. */
+    lb = { left: Math.max(0, lb.left), top: Math.max(0, lb.top), right: Math.min(W, lb.right), bottom: Math.min(H, lb.bottom) };
+    var partial = lb.left > 2 || lb.top > 2 || lb.right < W - 2 || lb.bottom < H - 2;
+    if (partial && near(sb.left, lb.left) && near(sb.top, lb.top) && near(sb.right, lb.right) && near(sb.bottom, lb.bottom)) r.wholeLayer = true;
+  }
   return r;
+};
+
+/* Select Subject inside a smart object's own document (where the photo fills the canvas) and mask it there. */
+MCP.ops["smartObject.maskSubject"] = function (p) {
+  var d = MCP.getDoc(p.doc), l = MCP.getLayer(d, p.layer);
+  if (l.kind !== LayerKind.SMARTOBJECT) MCP.fail("VALIDATION_ERROR", "\"" + l.name + "\" is not a smart object");
+  MCP.selectLayer(l);
+  MCP.play({ _obj: "placedLayerEditContents" }, "edit smart object contents");
+  var so = app.activeDocument, r;
+  if (so !== d && !/\.ps[db]$/i.test(so.name)) {
+    /* Embedded JPG/PNG contents cannot hold a mask: wrap the layer in a PSB smart object and edit that instead. */
+    so.close(SaveOptions.DONOTSAVECHANGES);
+    app.activeDocument = d;
+    var id0 = l.id;
+    MCP.selectLayer(l);
+    MCP.play({ _obj: "newPlacedLayer" }, "wrap in smart object");
+    l = d.activeLayer;
+    MCP.play({ _obj: "placedLayerEditContents" }, "edit smart object contents");
+    so = app.activeDocument;
+    MCP.warn("Layer " + id0 + " was wrapped in a new smart object (id " + l.id + ") so its contents can hold the mask.");
+  }
+  try {
+    if (so === d) MCP.fail("PHOTOSHOP_ERROR", "Could not open the smart object contents");
+    if (so.layers.length > 1) so.mergeVisibleLayers();
+    var base = so.layers[0];
+    MCP.ensureNotBackground(base);
+    so.activeLayer = base;
+    MCP.play({ _obj: "autoCutout", sampleAllLayers: false }, "Select Subject (contents)");
+    r = MCP.selResult(so);
+    if (!r.hasSelection) MCP.fail("PHOTOSHOP_ERROR", "Select Subject found no subject in the smart object");
+    if (MCP.hasMask(base)) MCP.play({ _obj: "delete", _target: [{ _ref: "channel", _enum: "channel", _value: "mask" }] }, "replace existing mask");
+    MCP.makeMask("selection");
+    so.selection.deselect();
+    so.save();
+  } finally {
+    if (app.activeDocument !== d) app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);
+    app.activeDocument = d;
+  }
+  return { layer: MCP.layerInfo(MCP.getLayer(d, { id: l.id }), false), subjectInContents: r.bounds };
 };
 MCP.ops["select.sky"] = function (p) {
   var d = MCP.getDoc(p.doc);
@@ -270,12 +318,13 @@ MCP.ops["mask.gradient"] = function (p) {
 MCP.ops["adjust.layer"] = function (p) {
   var d = MCP.getDoc(p.doc);
   if (p.layer) MCP.selectLayer(MCP.getLayer(d, p.layer));
+  if (!p.clip) MCP.aboveClipChain(d);
   MCP.play({ _obj: "make", _target: [{ _ref: "adjustmentLayer" }], using: { _obj: "adjustmentLayer", type: MCP.adjustmentType(p.kind, p.settings || {}) } }, p.kind + " adjustment");
   var l = d.activeLayer;
   if (p.name) l.name = p.name;
   if (p.opacity !== undefined) l.opacity = p.opacity;
   if (p.blendMode) MCP.setBlend(l, p.blendMode);
-  if (p.clip) l.grouped = true;
+  if (p.clip && !l.grouped) l.grouped = true; /* setting it again would release the clip */
   if (p.parent) l.move(MCP.getLayer(d, p.parent), ElementPlacement.INSIDE);
   var out = MCP.layerOut(l);
   out.kind = p.kind;

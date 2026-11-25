@@ -33,6 +33,7 @@ MCP.ops["layer.select"] = function (p) { var l = MCP.getLayer(MCP.getDoc(p.doc),
 
 MCP.ops["layer.create"] = function (p) {
   var d = MCP.getDoc(p.doc);
+  MCP.aboveClipChain(d);
   var l = p.kind === "group" ? d.layerSets.add() : d.artLayers.add();
   if (p.name) l.name = p.name;
   if (p.opacity !== undefined) l.opacity = p.opacity;
@@ -79,6 +80,18 @@ MCP.ops["layer.translate"] = function (p) {
   var dy = p.y !== undefined ? p.y - b.top : (p.dy || 0);
   l.translate(UnitValue(dx, "px"), UnitValue(dy, "px"));
   return MCP.layerOut(l);
+};
+
+/* Several moves in one call (align_layers / distribute_layers compute the deltas server-side). */
+MCP.ops["layer.translateMany"] = function (p) {
+  var d = MCP.getDoc(p.doc), out = [];
+  for (var i = 0; i < p.moves.length; i++) {
+    var m = p.moves[i], l = MCP.getLayer(d, { id: m.id });
+    if (l.typename === "ArtLayer" && l.isBackgroundLayer) MCP.fail("VALIDATION_ERROR", "The Background layer cannot be moved; convert it to a normal layer first.");
+    l.translate(UnitValue(m.dx, "px"), UnitValue(m.dy, "px"));
+    out.push(MCP.layerInfo(l, false));
+  }
+  return { layers: out };
 };
 
 MCP.ops["layer.transform"] = function (p) {
@@ -130,9 +143,28 @@ MCP.ops["layer.merge"] = function (p) {
 
 MCP.ops["layer.mergeVisible"] = function (p) { var d = MCP.getDoc(p.doc); d.mergeVisibleLayers(); return MCP.layerOut(d.activeLayer); };
 
+/* Grouping non-adjacent layers puts the group at the topmost member, which moves lower members above the layers in between. */
+MCP.warnSkipped = function (ls) {
+  try {
+    var par = ls[0].parent, sib = par.layers, idx = [], i, k;
+    for (i = 0; i < ls.length; i++) {
+      if (ls[i].parent !== par) return;
+      for (k = 0; k < sib.length; k++) if (sib[k] === ls[i]) idx.push(k);
+    }
+    var lo = Math.min.apply(null, idx), hi = Math.max.apply(null, idx), skipped = [];
+    for (k = lo; k <= hi; k++) {
+      var member = false;
+      for (i = 0; i < idx.length; i++) if (idx[i] === k) member = true;
+      if (!member && !(sib[k].typename === "ArtLayer" && sib[k].grouped)) skipped.push(sib[k].name); /* clipped layers travel with their base */
+    }
+    if (skipped.length) MCP.warn("Members were not adjacent: the group sits where the topmost member was, so lower members now stack above " + skipped.slice(0, 12).join(", ") + (skipped.length > 12 ? " (+" + (skipped.length - 12) + " more)" : "") + ". Use reorder_layers if that hides something.");
+  } catch (e) {}
+};
+
 MCP.ops["layer.group"] = function (p) {
   var d = MCP.getDoc(p.doc);
   var ls = MCP.refs(d, p.layers);
+  MCP.warnSkipped(ls);
   MCP.selectLayers(ls);
   MCP.play({ _obj: "make", _target: [{ _ref: "layerSection" }], from: { _ref: "layer", _enum: "ordinal", _value: "targetEnum" }, using: { _obj: "layerSection", name: p.name || "Group" } }, "group layers");
   return { layer: MCP.layerInfo(d.activeLayer, false), members: MCP.map(ls, function (l) { return l.id; }) };

@@ -3,7 +3,7 @@
 ```
 ┌──────────────┐  stdio (Claude Desktop, Claude Code, Cursor, VS Code)   ┌──────────────── MCP server (Node, dist/index.js) ─────────────────┐
 │ MCP client   │────────────────────────────────────────────────────────►│ transport/   stdio | Streamable HTTP (bearer / secret path)       │
-│ Claude, GPT… │  HTTPS tunnel → Streamable HTTP (ChatGPT, remote)       │ mcp/tools/   294 tools → Zod validation → handlers                │
+│ Claude, GPT… │  HTTPS tunnel → Streamable HTTP (ChatGPT, remote)       │ mcp/tools/   296 tools → Zod validation → handlers                │
 └──────────────┘                                                          │ design-engine/, workflow-engine/   briefs → plans → bridge ops   │
                                                                           │ jobs/        background jobs, executions                          │
                                                                           │ photoshop/bridge/  PhotoshopBridge: allowlist, serial queue,      │

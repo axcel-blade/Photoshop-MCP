@@ -11,7 +11,7 @@ export const BRIDGE_OPS = [
   "doc.crop", "doc.rotate", "doc.flip", "doc.trim", "doc.colors",
   // layers
   "layer.list", "layer.info", "layer.create", "layer.delete", "layer.duplicate", "layer.rename",
-  "layer.translate", "layer.arrange", "layer.merge", "layer.mergeVisible", "layer.group", "layer.ungroup",
+  "layer.translate", "layer.translateMany", "layer.arrange", "layer.merge", "layer.mergeVisible", "layer.group", "layer.ungroup",
   "layer.props", "layer.link", "layer.rasterize", "layer.smartObject", "layer.select", "layer.transform",
   "layer.effects", "layer.clearEffects", "layer.fill", "layer.clip", "layer.replaceContents", "layer.fromSelection",
   // text
@@ -24,7 +24,7 @@ export const BRIDGE_OPS = [
   "select.all", "select.none", "select.invert", "select.rect", "select.ellipse", "select.polygon",
   "select.subject", "select.sky", "select.colorRange", "select.modify", "select.info", "select.layerPixels",
   // masks
-  "mask.create", "mask.vector", "mask.delete", "mask.invert", "mask.apply", "mask.refine", "mask.gradient",
+  "mask.create", "smartObject.maskSubject", "mask.vector", "mask.delete", "mask.invert", "mask.apply", "mask.refine", "mask.gradient",
   // adjustments / filters / edits
   "adjust.layer", "filter.apply", "edit.contentAwareFill", "edit.fillSelection",
   // actions

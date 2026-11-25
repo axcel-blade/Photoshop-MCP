@@ -3,6 +3,7 @@ import { Gradient } from "../../schemas/index.js";
 import { cmd, Sequence, tool, WRITE, type ToolContext, type ToolOutput } from "./registry.js";
 import { color, doc, inputPath, layer, path, region, regionSelect, spots, spotsToShapes, type Region } from "./args.js";
 import { contentAwareRegions } from "./retouch.js";
+import { PsMcpError } from "../../utils/errors.js";
 
 const M = "background";
 
@@ -16,7 +17,18 @@ export async function removeBackground(ctx: ToolContext, d: unknown, l: unknown)
   const seq = new Sequence(ctx);
   const id = await targetLayerId(ctx, d, l);
   await seq.run("target layer", "layer.select", { doc: d, layer: { id } });
-  await seq.run("select subject", "select.subject", { doc: d, sampleAllLayers: false });
+  const sel = await seq.run("select subject", "select.subject", { doc: d, sampleAllLayers: false });
+  if ((sel.data as { wholeLayer?: boolean }).wholeLayer) {
+    // Select Subject picked the layer's whole rectangle (a photo smaller than the canvas): find the subject inside it instead.
+    await seq.run("deselect", "select.none", { doc: d });
+    const info = await cmd(ctx, "layer.info", { doc: d, layer: { id } });
+    if ((info.data as { layer: { kind: string } }).layer.kind !== "smartObject") {
+      throw new PsMcpError("PHOTOSHOP_ERROR", "Select Subject selected the whole layer, not a subject inside it. Convert the layer to a smart object (convert_to_smart_object) and retry, or open the photo as its own document.");
+    }
+    const out = await seq.run("mask subject inside smart object", "smartObject.maskSubject", { doc: d, layer: { id } });
+    const layerId = (out.data as { layer: { id: number } }).layer.id;
+    return seq.result({ layerId, method: "Select Subject inside the smart object + layer mask in its contents" }, ["The background is masked inside the smart object (non-destructive): open its contents to refine the mask."]);
+  }
   await seq.run("mask background", "mask.create", { doc: d, layer: { id }, from: "selection" });
   await seq.run("deselect", "select.none", { doc: d });
   return seq.result({ layerId: id, method: "Select Subject + layer mask" }, ["Background is hidden by a layer mask (non-destructive). Use refine_mask to soften edges, or invert_mask if the subject was misdetected."]);
@@ -37,7 +49,7 @@ function bgArgs(ctx: ToolContext, a: { color?: string; gradient?: z.infer<typeof
 }
 
 export function registerBackgroundTools(): void {
-  tool({ name: "remove_background", module: M, description: "Remove the background non-destructively: Select Subject (Photoshop ML) → layer mask on the subject layer.", annotations: WRITE, commands: ["layer.info", "layer.select", "select.subject", "mask.create", "select.none"], input: { doc, layer }, handler: (a, ctx) => removeBackground(ctx, a.doc, a.layer) });
+  tool({ name: "remove_background", module: M, description: "Remove the background non-destructively: Select Subject (Photoshop ML) → layer mask on the subject layer.", annotations: WRITE, commands: ["layer.info", "layer.select", "select.subject", "mask.create", "smartObject.maskSubject", "select.none"], input: { doc, layer }, handler: (a, ctx) => removeBackground(ctx, a.doc, a.layer) });
   const bgInput = { doc, layer, color: color.optional(), gradient: Gradient.optional(), imagePath: path.optional() };
   tool({
     name: "replace_background", module: M, description: "Mask out the background, then add a new background layer below the subject (solid color, gradient or image).", annotations: WRITE, commands: ["select.subject", "mask.create", "fill.solid", "fill.gradient", "image.place", "layer.arrange"],

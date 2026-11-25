@@ -306,6 +306,22 @@ MCP.selectLayers = function (layers) {
   }
 };
 
+/*
+ * Photoshop inserts a new layer above the active one; inside a clipping chain (active layer is a clip base or
+ * clipped) the new layer joins the chain and clips to the base. Releasing it afterwards also releases every
+ * clipped layer above it, so instead make the top of the chain active before creating an unclipped layer.
+ */
+MCP.aboveClipChain = function (d) {
+  try {
+    var l = d.activeLayer, sib = l.parent.layers, i = -1;
+    for (var k = 0; k < sib.length; k++) if (sib[k] === l) { i = k; break; }
+    if (i < 0) return;
+    var top = i;
+    while (top > 0 && sib[top - 1].typename === "ArtLayer" && sib[top - 1].grouped) top--;
+    if (top !== i) MCP.selectLayer(sib[top]);
+  } catch (e) {}
+};
+
 MCP.ensureNotBackground = function (l) {
   if (l.typename === "ArtLayer" && l.isBackgroundLayer) l.isBackgroundLayer = false;
 };
