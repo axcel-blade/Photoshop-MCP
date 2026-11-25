@@ -102,6 +102,13 @@ jobs:
           # Shared runner IPs exhaust GitHub's anonymous API limit; authenticate the release lookup.
           GITHUB_TOKEN: ${{ github.token }}
         run: |
+          # Nothing to download until the first GitHub release is published: skip instead of failing.
+          $headers = @{ 'User-Agent' = 'photoshop-mcp-ci'; Authorization = "Bearer $env:GITHUB_TOKEN" }
+          try { Invoke-RestMethod -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/latest" -Headers $headers | Out-Null }
+          catch {
+            if ("$_" -match 'Not Found') { Write-Host '::notice::No published release yet; skipping the download install test.'; exit 0 }
+            throw
+          }
           Get-Content installers\windows\install.ps1 -Raw | Invoke-Expression
           node (Join-Path $env:PHOTOSHOP_MCP_DIR 'scripts\smoke-install.mjs')
           if ($LASTEXITCODE -ne 0) { exit 1 }
@@ -160,5 +167,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
+          # Nothing to download until the first GitHub release is published: skip instead of failing.
+          code="$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/latest")"
+          if [ "$code" = 404 ]; then echo "::notice::No published release yet; skipping the download install test."; exit 0; fi
           PHOTOSHOP_MCP_CONFIGURE_CLIENTS=0 bash installers/macos/install.sh --dir "$RUNNER_TEMP/imcp-latest"
           node "$RUNNER_TEMP/imcp-latest/scripts/smoke-install.mjs"
