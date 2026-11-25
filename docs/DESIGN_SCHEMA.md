@@ -3,7 +3,6 @@
 The structured intermediate representation of the design engine lives in `src/schemas/design-plan.ts` (Zod).
 `plan_design`, `generate_design` and the `create_*` design tools produce it; `validate_design_plan` checks it;
 `execute_design_plan` builds it in Photoshop in **one** bridge call (`execute_plan` in `photoshop-scripts/design.jsx`).
-Examples: [`examples/*.plan.json`](../examples).
 
 ## Top level
 

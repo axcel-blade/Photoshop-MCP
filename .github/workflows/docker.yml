@@ -65,7 +65,7 @@ jobs:
           check /install.sh 200 text/plain
           check /no-such-page 404 text/html
           curl -s http://localhost:8080/install.sh | head -1 | grep -q '^#!/usr/bin/env bash'
-          curl -s http://localhost:8080/docs/tools/ | grep -q 'offset_path'
+          curl -s http://localhost:8080/docs/tools/ | grep -q 'align_layers'
 
       - name: Healthcheck
         run: |

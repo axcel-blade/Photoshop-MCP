@@ -5,10 +5,10 @@ The one-line installers configure the clients below automatically; this page is 
 
 | Client | Transport | Config |
 |---|---|---|
-| Claude Desktop | stdio | `%APPDATA%\Claude\claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/`) — see `examples/claude_desktop_config.json` / `claude_desktop_config.macos.json`, or `scripts\install.ps1 -ConfigureClaude` |
-| Claude Code | stdio | `claude mcp add --scope user photoshop -e PHOTOSHOP_ADAPTER=auto -- node C:\path\to\Photoshop-MCP\dist\index.js` (or a project `.mcp.json`, see `examples/mcp.json`) |
-| VS Code (Copilot agent mode) | stdio | `.vscode/mcp.json` — see `examples/vscode.mcp.json` (`servers` key, `type: "stdio"`) |
-| Cursor | stdio | `~/.cursor/mcp.json` or project `.cursor/mcp.json` — see `examples/cursor.mcp.json` |
+| Claude Desktop | stdio | `%APPDATA%\Claude\claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/`) — or run `scripts\install.ps1 -ConfigureClaude` |
+| Claude Code | stdio | `claude mcp add --scope user photoshop -e PHOTOSHOP_ADAPTER=auto -- node C:\path\to\Photoshop-MCP\dist\index.js` (or a project `.mcp.json`) |
+| VS Code (Copilot agent mode) | stdio | `.vscode/mcp.json` (`servers` key, `type: "stdio"`) |
+| Cursor | stdio | `~/.cursor/mcp.json` or project `.cursor/mcp.json` |
 | Windsurf | stdio | `~/.codeium/windsurf/mcp_config.json`, same `mcpServers` shape as Claude Desktop |
 | Gemini CLI | stdio | `~/.gemini/settings.json`, `mcpServers` key |
 | Codex CLI | stdio | `codex mcp add photoshop --env PHOTOSHOP_ADAPTER=auto -- node <repo>\dist\index.js` |

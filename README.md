@@ -124,7 +124,7 @@ ChatGPT needs a remote HTTPS endpoint; see [INSTALLATION.md §6](docs/INSTALLATI
 - [Installation (Windows & macOS)](docs/INSTALLATION.md) · [Configuration](docs/CONFIGURATION.md) · [Connecting clients](docs/CLIENTS.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Supported features](docs/SUPPORTED_FEATURES.md) · [API reference](docs/API_REFERENCE.md) (results, errors, jobs, resources, prompts)
-- [Tool reference](docs/TOOLS.md) (generated) · [Example prompts](docs/EXAMPLES.md)
+- [Tool reference](docs/TOOLS.md) (generated)
 - [UI design: auto layout, components, tokens](docs/UI_DESIGN.md)
 - [Design plan schema](docs/DESIGN_SCHEMA.md) · [Coordinate convention](docs/COORDINATES.md)
 - [Security](docs/SECURITY.md) · [Testing](docs/TESTING.md) · [Test report](docs/TEST_REPORT.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)

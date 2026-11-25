@@ -109,7 +109,6 @@ ChatGPT does not launch local stdio servers; it connects to remote MCP servers o
 4. In ChatGPT add a connector with URL `https://<tunnel-host>/mcp/<secret>`.
 
 Treat the tunnel URL as a password: anyone with it can drive your Photoshop within the allowed folders. Stop the tunnel when done.
-See [examples/http-remote.md](../examples/http-remote.md).
 
 ## 7. Verify
 

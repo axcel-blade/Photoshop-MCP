@@ -2,7 +2,7 @@
 /**
  * Build the release archive the installers download:
  *   release/photoshop-mcp-<version>.zip  (+ .sha256)
- * Contains the compiled server (dist/), the JSX bridge scripts, data, examples, docs and the
+ * Contains the compiled server (dist/), the JSX bridge scripts, data, docs and the
  * pnpm lockfile so installers only run `pnpm install --prod --frozen-lockfile`.
  *
  *   pnpm build && node scripts/pack-release.mjs [--out release]
@@ -24,7 +24,7 @@ if (!existsSync(join(ROOT, "dist", "index.js"))) {
 }
 
 const INCLUDE = [
-  "dist", "photoshop-scripts", "data", "examples", "docs", "scripts",
+  "dist", "photoshop-scripts", "data", "docs", "scripts",
   "package.json", "pnpm-lock.yaml", ".env.example", "README.md", "LICENSE", "CHANGELOG.md", "SECURITY.md",
 ];
 
