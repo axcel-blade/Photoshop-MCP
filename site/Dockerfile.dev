@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1
+# Dev server with hot reload. Build context is the repository root:
+#   docker compose -f site/docker-compose.dev.yml up --build      -> http://localhost:4321/
+FROM node:22-alpine
+WORKDIR /repo
+
+RUN corepack enable && corepack prepare pnpm@10.18.0 --activate
+
+COPY site/package.json site/pnpm-lock.yaml site/
+RUN pnpm --dir site install --frozen-lockfile
+
+COPY package.json ./
+COPY docs ./docs
+COPY installers ./installers
+COPY site ./site
+
+ENV ASTRO_SITE=http://localhost:4321 \
+    ASTRO_BASE=/
+
+EXPOSE 4321
+CMD ["pnpm", "--dir", "site", "dev", "--host", "0.0.0.0", "--port", "4321"]

@@ -1,0 +1,17 @@
+---
+import { docs, GROUPS, href } from "../lib/docs";
+interface Props { current?: string }
+const { current } = Astro.props;
+---
+<nav class="sidebar" aria-label="Documentation">
+  {GROUPS.map((g) => (
+    <>
+      <h4>{g}</h4>
+      <ul>
+        {docs.filter((d) => d.group === g).map((d) => (
+          <li><a href={href(`/docs/${d.slug}/`)} aria-current={d.slug === current ? "page" : undefined}>{d.title}</a></li>
+        ))}
+      </ul>
+    </>
+  ))}
+</nav>

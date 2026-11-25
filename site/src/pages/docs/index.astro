@@ -1,0 +1,21 @@
+---
+import DocsNav from "../../components/DocsNav.astro";
+import Layout from "../../layouts/Layout.astro";
+import { docs, GROUPS, href } from "../../lib/docs";
+---
+<Layout title="Documentation">
+  <div class="docs">
+    <DocsNav />
+    <article class="prose">
+      <h1>Documentation</h1>
+      {GROUPS.map((g) => (
+        <>
+          <h2>{g}</h2>
+          <ul>
+            {docs.filter((d) => d.group === g).map((d) => <li><a href={href(`/docs/${d.slug}/`)}>{d.title}</a></li>)}
+          </ul>
+        </>
+      ))}
+    </article>
+  </div>
+</Layout>

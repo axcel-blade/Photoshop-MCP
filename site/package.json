@@ -1,0 +1,23 @@
+{
+  "name": "photoshop-mcp-site",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.18.0",
+  "scripts": {
+    "sync": "node scripts/sync-public.mjs",
+    "dev": "node scripts/sync-public.mjs && astro dev",
+    "build": "node scripts/sync-public.mjs && astro build",
+    "preview": "astro preview",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "astro": "5.7.10"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.4",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
