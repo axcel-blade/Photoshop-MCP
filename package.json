@@ -1,6 +1,6 @@
 {
   "name": "photoshop-ai-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Adobe Photoshop AI MCP server: natural-language design and photo-editing workflows executed in Photoshop through COM (Windows) / AppleScript (macOS) and ExtendScript.",
   "type": "module",
   "main": "dist/index.js",
