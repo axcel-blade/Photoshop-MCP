@@ -1,0 +1,25 @@
+# Hot-reload docs site: docker compose -f site/docker-compose.dev.yml up --build
+# -> http://localhost:4321/  Edits to docs/*.md, installers/ and site/ reload live.
+services:
+  site-dev:
+    build:
+      context: ..
+      dockerfile: site/Dockerfile.dev
+    image: photoshop-mcp-site:dev
+    ports:
+      - "4321:4321"
+    volumes:
+      - ../docs:/repo/docs
+      - ../installers:/repo/installers
+      - ../package.json:/repo/package.json:ro
+      - .:/repo/site
+      # Keep the container's Linux node_modules; never mount the host's.
+      - site_node_modules:/repo/site/node_modules
+    environment:
+      ASTRO_SITE: http://localhost:4321
+      ASTRO_BASE: /
+      # File watching across Docker Desktop bind mounts (Windows/macOS).
+      CHOKIDAR_USEPOLLING: "true"
+
+volumes:
+  site_node_modules:

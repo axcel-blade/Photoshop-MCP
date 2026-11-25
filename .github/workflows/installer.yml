@@ -1,0 +1,164 @@
+name: Installer
+
+# Builds the release package, installs it with the one-line installers on clean Windows and
+# macOS runners (no Photoshop there: the smoke test uses the mock adapter), checks upgrades
+# keep user settings, and that the Claude Desktop config is merged, not replaced.
+
+on:
+  pull_request:
+    paths:
+      - "installers/**"
+      - "scripts/pack-release.mjs"
+      - "scripts/smoke-install.mjs"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/installer.yml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "installers/**"
+      - "scripts/pack-release.mjs"
+      - "scripts/smoke-install.mjs"
+      - ".github/workflows/installer.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: installer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: node scripts/pack-release.mjs
+
+      - name: PowerShell syntax
+        shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD\installers\windows\install.ps1", [ref]$null, [ref]$errors) | Out-Null
+          if ($errors) { $errors | ForEach-Object { Write-Host $_.Message }; exit 1 }
+
+      - name: Install (Windows PowerShell 5.1, fresh) and register MCP clients
+        shell: powershell
+        env:
+          PHOTOSHOP_MCP_SKIP_CLI_CLIENTS: "1"
+        run: |
+          $zip = (Get-ChildItem release\photoshop-mcp-*.zip).FullName
+          $dir = Join-Path $env:RUNNER_TEMP 'imcp'
+          $claude = Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'
+          $cursor = Join-Path $env:USERPROFILE '.cursor\mcp.json'
+          $vscode = Join-Path $env:APPDATA 'Code\User\mcp.json'
+          $toml = Join-Path $env:USERPROFILE '.codex\config.toml'
+          New-Item -ItemType Directory -Force (Split-Path $claude), (Split-Path $cursor), (Split-Path $vscode), (Split-Path $toml) | Out-Null
+          '{"mcpServers":{"other":{"command":"x"}},"theme":"dark"}' | Out-File $claude -Encoding ascii
+          '{"mcpServers":{"other":{"command":"x"}}}' | Out-File $cursor -Encoding ascii
+          "// comment`n{`"servers`":{}}" | Out-File $vscode -Encoding ascii
+          "[mcp_servers.photoshop]`ncommand = `"old`"`n" | Out-File $toml -Encoding ascii
+          .\installers\windows\install.ps1 -Archive $zip -InstallDir $dir
+          node (Join-Path $dir 'scripts\smoke-install.mjs')
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # JSON written without a BOM and merged, not replaced; JSONC left alone; TOML entry replaced once.
+          node -e "const fs=require('fs'); for (const f of process.argv.slice(1,3)) { const t=fs.readFileSync(f,'utf8'); if (t.charCodeAt(0)===0xFEFF) throw f+' has BOM'; const c=JSON.parse(t); if (!c.mcpServers.other||!c.mcpServers.photoshop) throw f+' not merged'; } if (JSON.parse(fs.readFileSync(process.argv[1],'utf8')).theme!=='dark') throw 'claude settings lost'" $claude $cursor
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if ((Get-Content $vscode -Raw) -notmatch 'comment') { Write-Error 'JSONC config was modified'; exit 1 }
+          $t = Get-Content $toml -Raw
+          if ($t -match 'old' -or ([regex]::Matches($t, '\[mcp_servers\.photoshop\]')).Count -ne 1) { Write-Error "codex toml wrong: $t"; exit 1 }
+          if (-not (Test-Path "$claude.photoshop-mcp.bak")) { Write-Error 'no backup'; exit 1 }
+
+      - name: Upgrade keeps .env; -NoClients leaves configs alone
+        shell: powershell
+        run: |
+          $zip = (Get-ChildItem release\photoshop-mcp-*.zip).FullName
+          $dir = Join-Path $env:RUNNER_TEMP 'imcp'
+          $claude = Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'
+          $before = Get-Content $claude -Raw
+          'LOG_LEVEL=warn # user setting' | Set-Content (Join-Path $dir '.env')
+          .\installers\windows\install.ps1 -Archive $zip -InstallDir $dir -NoClients
+          if ((Get-Content (Join-Path $dir '.env') -Raw) -notmatch 'user setting') { Write-Error '.env was overwritten'; exit 1 }
+          if ((Get-Content $claude -Raw) -ne $before) { Write-Error '-NoClients changed the Claude config'; exit 1 }
+          node (Join-Path $dir 'scripts\smoke-install.mjs')
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      # The steps above install a local archive; this one exercises the real download path
+      # (GitHub API, asset download, .sha256 verification) the one-liner uses, piped through iex.
+      - name: Install the latest published release (download + checksum)
+        shell: powershell
+        env:
+          PHOTOSHOP_MCP_DIR: ${{ runner.temp }}\imcp-latest
+          PHOTOSHOP_MCP_CONFIGURE_CLIENTS: "0"
+          # Shared runner IPs exhaust GitHub's anonymous API limit; authenticate the release lookup.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          Get-Content installers\windows\install.ps1 -Raw | Invoke-Expression
+          node (Join-Path $env:PHOTOSHOP_MCP_DIR 'scripts\smoke-install.mjs')
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+  macos:
+    name: macOS installer
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: node scripts/pack-release.mjs
+
+      - name: Shell syntax
+        run: bash -n installers/macos/install.sh
+
+      - name: Install (fresh) and register MCP clients
+        env:
+          PHOTOSHOP_MCP_SKIP_CLI_CLIENTS: "1"
+        run: |
+          ZIP="$(ls release/photoshop-mcp-*.zip)"
+          DIR="$RUNNER_TEMP/imcp"
+          SUP="$HOME/Library/Application Support"
+          CFG="$SUP/Claude/claude_desktop_config.json"
+          mkdir -p "$SUP/Claude" "$HOME/.cursor" "$SUP/Code/User" "$HOME/.codex"
+          echo '{"mcpServers":{"other":{"command":"x"}},"theme":"dark"}' > "$CFG"
+          echo '{"mcpServers":{"other":{"command":"x"}}}' > "$HOME/.cursor/mcp.json"
+          printf '// comment\n{"servers":{}}\n' > "$SUP/Code/User/mcp.json"
+          printf '[mcp_servers.photoshop]\ncommand = "old"\n' > "$HOME/.codex/config.toml"
+          bash installers/macos/install.sh --archive "$ZIP" --dir "$DIR"
+          node "$DIR/scripts/smoke-install.mjs"
+          node -e 'for (const f of process.argv.slice(1)) { const c = require(f); if (!c.mcpServers.other || !c.mcpServers.photoshop) throw new Error(f + " not merged"); } if (require(process.argv[1]).theme !== "dark") throw new Error("claude settings lost")' "$CFG" "$HOME/.cursor/mcp.json"
+          grep -q comment "$SUP/Code/User/mcp.json"
+          ! grep -q old "$HOME/.codex/config.toml"
+          test "$(grep -c '^\[mcp_servers.photoshop\]' "$HOME/.codex/config.toml")" = 1
+          test -f "$CFG.photoshop-mcp.bak"
+
+      - name: Upgrade keeps .env; --no-clients leaves configs alone
+        run: |
+          ZIP="$(ls release/photoshop-mcp-*.zip)"
+          DIR="$RUNNER_TEMP/imcp"
+          CFG="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+          BEFORE="$(shasum "$CFG")"
+          echo 'LOG_LEVEL=warn # user setting' > "$DIR/.env"
+          bash installers/macos/install.sh --archive "$ZIP" --dir "$DIR" --no-clients
+          grep -q 'user setting' "$DIR/.env"
+          test "$(shasum "$CFG")" = "$BEFORE"
+          node "$DIR/scripts/smoke-install.mjs"
+
+      - name: Install the latest published release (download + checksum)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          PHOTOSHOP_MCP_CONFIGURE_CLIENTS=0 bash installers/macos/install.sh --dir "$RUNNER_TEMP/imcp-latest"
+          node "$RUNNER_TEMP/imcp-latest/scripts/smoke-install.mjs"

@@ -1,0 +1,89 @@
+name: Docker
+
+# Builds the docs-site image (site/Dockerfile, context = repo root), runs it and checks the
+# pages, the 404 page, the installers' content type and the container healthcheck.
+# The MCP server itself is not containerised: it drives Photoshop through Windows COM or
+# macOS AppleScript, which a Linux container cannot reach.
+
+on:
+  pull_request:
+    paths:
+      - "site/**"
+      - "docs/**"
+      - "installers/**"
+      - ".dockerignore"
+      - ".github/workflows/docker.yml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "site/**"
+      - ".dockerignore"
+      - ".github/workflows/docker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  site-image:
+    name: Docs site image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: site/Dockerfile
+          load: true
+          tags: photoshop-mcp-site:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run and check
+        run: |
+          docker run -d --name site -p 8080:80 photoshop-mcp-site:ci
+          up=0
+          for i in $(seq 1 30); do curl -fs http://localhost:8080/ >/dev/null && { up=1; break; }; sleep 1; done
+          [ "$up" = 1 ] || { echo "site did not start" >&2; docker logs site; exit 1; }
+          check() { # path expected-status expected-content-type-prefix
+            # The trailing \n matters: without it `read` returns 1 at EOF, which aborts the step under bash -e.
+            read -r code type < <(curl -s -o /dev/null -w '%{http_code} %{content_type}\n' "http://localhost:8080$1")
+            echo "$1 -> $code $type"
+            [ "$code" = "$2" ] && [[ "$type" == $3* ]] || { echo "expected $2 $3" >&2; exit 1; }
+          }
+          check / 200 text/html
+          check /docs/ 200 text/html
+          check /docs/tools/ 200 text/html
+          check /install.ps1 200 text/plain
+          check /install.sh 200 text/plain
+          check /no-such-page 404 text/html
+          curl -s http://localhost:8080/install.sh | head -1 | grep -q '^#!/usr/bin/env bash'
+          curl -s http://localhost:8080/docs/tools/ | grep -q 'offset_path'
+
+      - name: Healthcheck
+        run: |
+          for i in $(seq 1 20); do
+            s="$(docker inspect --format '{{.State.Health.Status}}' site)"; echo "health: $s"
+            [ "$s" = healthy ] && exit 0; sleep 3
+          done
+          docker logs site; exit 1
+
+  site-dev-image:
+    name: Docs dev image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: site/Dockerfile.dev
+          tags: photoshop-mcp-site:dev
+          cache-from: type=gha

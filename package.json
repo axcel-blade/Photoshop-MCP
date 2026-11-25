@@ -1,0 +1,50 @@
+{
+  "name": "photoshop-ai-mcp",
+  "version": "1.0.0",
+  "description": "Adobe Photoshop AI MCP server: natural-language design and photo-editing workflows executed in Photoshop through COM (Windows) / AppleScript (macOS) and ExtendScript.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "photoshop-ai-mcp": "dist/index.js"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.18.0",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "start:http": "node dist/index.js --transport http",
+    "start:mock": "node dist/index.js --mock",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "tsx tests/integration/run-integration.ts",
+    "test:e2e": "node tests/e2e/suite.mjs",
+    "test:e2e:http": "node tests/e2e/http.mjs",
+    "test:e2e:resources": "node tests/e2e/resources.mjs",
+    "docs:tools": "tsx scripts/gen-tool-docs.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "@types/node": "22.19.1",
+    "eslint": "9.39.1",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.46.4",
+    "vitest": "3.2.4",
+    "zod-to-json-schema": "3.25.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+title: "[Show] "
+labels: ["show-and-tell"]
+body:
+  - type: textarea
+    id: built
+    attributes:
+      label: What I built
+      description: A poster, logo, UI screen, brand kit... made with Photoshop MCP.
+    validations:
+      required: true
+  - type: textarea
+    id: prompt
+    attributes:
+      label: Prompt or brief
+      description: What you asked the AI (Claude, ChatGPT, ...) to do.
+  - type: textarea
+    id: images
+    attributes:
+      label: Screenshots / exports
+      description: Drag in PNG/SVG exports or screenshots of the Photoshop document.
+  - type: textarea
+    id: tips
+    attributes:
+      label: Tips for others
+      description: Tools, wording or settings that worked well.
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Photoshop MCP, Photoshop and AI client versions.
+      placeholder: "Photoshop MCP 1.0.0, Photoshop 2026 (30.x), Claude Desktop"

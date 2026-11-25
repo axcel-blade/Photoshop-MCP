@@ -1,0 +1,47 @@
+---
+import "../styles/site.css";
+import { href, REPO, VERSION } from "../lib/docs";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+const { title, description = "Design and edit photos in Adobe Photoshop from Claude or ChatGPT: layered, editable PSDs from natural-language briefs." } = Astro.props;
+const fullTitle = title === "Photoshop MCP" ? title : `${title} · Photoshop MCP`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <link rel="icon" type="image/svg+xml" href={href("/favicon.svg")} />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="topbar">
+      <a class="brand" href={href("/")}>
+        <svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--logo-bg)" /><text x="16" y="21.5" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-weight="700" font-size="14" fill="var(--logo-ink)">Ps</text></svg>
+        Photoshop MCP
+      </a>
+      <nav aria-label="Main">
+        <a href={href("/#install")}>Install</a>
+        <a href={href("/docs/tools/")}>Tools</a>
+        <a href={href("/docs/")}>Docs</a>
+        <a href={`${REPO}/releases/latest`} class="pill">v{VERSION}</a>
+        <a href={REPO} aria-label="GitHub repository">GitHub</a>
+      </nav>
+    </header>
+    <main id="main">
+      <slot />
+    </main>
+    <footer class="footer">
+      <span>Photoshop MCP v{VERSION} · MIT License</span>
+      <span>Not affiliated with Adobe. Adobe Photoshop is a trademark of Adobe Inc.</span>
+    </footer>
+  </body>
+</html>

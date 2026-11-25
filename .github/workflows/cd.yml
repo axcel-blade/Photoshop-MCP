@@ -1,0 +1,121 @@
+name: CD
+
+# Builds the install package for a release tag and attaches it to the GitHub Release:
+#   photoshop-mcp-X.Y.Z.zip (+ .sha256) — what the one-line installers download.
+# Runs on tag pushes (v*) and when the Release workflow dispatches it.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build (e.g. v1.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: cd-${{ github.event.inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build package
+    runs-on: windows-latest
+    outputs:
+      tag: ${{ steps.refs.outputs.tag }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Resolve tag
+        id: refs
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then TAG="$INPUT_TAG"; else TAG="$GITHUB_REF_NAME"; fi
+          [[ "$TAG" =~ ^v[0-9] ]] || { echo "Tag must look like v1.2.3 (got: $TAG)" >&2; exit 1; }
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.refs.outputs.tag }}
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Verify version matches tag
+        run: |
+          PKG="$(node -p 'require("./package.json").version')"
+          echo "tag=${{ steps.refs.outputs.version }} package.json=$PKG"
+          test "$PKG" = "${{ steps.refs.outputs.version }}"
+
+      - name: Build and test
+        env:
+          LOG_LEVEL: error
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          pnpm test
+
+      - name: Pack install package
+        run: node scripts/pack-release.mjs
+
+      - name: Smoke-test the package with the installer
+        shell: powershell
+        run: |
+          $zip = (Get-ChildItem release\photoshop-mcp-*.zip).FullName
+          $dir = Join-Path $env:RUNNER_TEMP 'imcp'
+          .\installers\windows\install.ps1 -Archive $zip -InstallDir $dir -NoClients
+          node (Join-Path $dir 'scripts\smoke-install.mjs')
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: |
+            release/photoshop-mcp-*.zip
+            release/photoshop-mcp-*.zip.sha256
+          if-no-files-found: error
+
+  github-release:
+    name: Attach to GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: package
+          path: release
+
+      - name: Upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.tag }}
+          files: |
+            release/photoshop-mcp-*.zip
+            release/photoshop-mcp-*.zip.sha256
+          fail_on_unmatched_files: true
+          prerelease: ${{ contains(needs.build.outputs.tag, '-') }}
+
+  pages:
+    name: Refresh docs site
+    needs: github-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Pages on main
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # The github-pages environment only deploys from branches, so rebuild from main
+          # (the site shows the latest release version).
+          gh workflow run pages.yml --repo "${{ github.repository }}" --ref main

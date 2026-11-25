@@ -1,0 +1,181 @@
+name: Release
+
+# Manual release: bump package.json, date the CHANGELOG "Unreleased" section, verify, commit,
+# tag vX.Y.Z, create the GitHub Release and start CD (which attaches the install package).
+# Run it from Actions > Release > Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semver without v prefix (e.g. 1.1.0)"
+        required: true
+        type: string
+      branch:
+        description: "Branch to release from (Git Flow: main)"
+        required: true
+        default: main
+        type: string
+      prerelease:
+        description: "Mark the GitHub Release as a prerelease"
+        required: false
+        default: false
+        type: boolean
+      dry_run:
+        description: "Prepare and verify only; push nothing"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare release
+    # Windows matches CI and the primary target platform (COM bridge, Windows path rules).
+    runs-on: windows-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Validate version
+        id: meta
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          VERSION="${VERSION#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid semver: $VERSION" >&2; exit 1
+          fi
+          TAG="v${VERSION}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag already exists: $TAG" >&2; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Bump package.json
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            pkg.version = process.env.VERSION;
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
+            console.log("package.json ->", pkg.version);
+          '
+
+      - name: Date the CHANGELOG
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const v = process.env.VERSION;
+            let text = fs.readFileSync("CHANGELOG.md", "utf8");
+            if (new RegExp("^## " + v.replace(/\./g, "\\.") + "\\b", "m").test(text)) {
+              console.log("CHANGELOG already has " + v); process.exit(0);
+            }
+            const today = new Date().toISOString().slice(0, 10);
+            /* Unreleased entries move under the new heading; Unreleased stays, empty. */
+            const next = text.replace(/^## Unreleased[ \t]*\r?\n/m, "## Unreleased\n\n## " + v + " \u2014 " + today + "\n"); /* em dash, escaped for Windows shells */
+            if (next === text) { console.error("CHANGELOG.md has no \"## Unreleased\" heading"); process.exit(1); }
+            fs.writeFileSync("CHANGELOG.md", next);
+            console.log("CHANGELOG: Unreleased -> " + v + " (" + today + ")");
+          '
+
+      - name: Extract release notes
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const v = process.env.VERSION;
+            const lines = fs.readFileSync("CHANGELOG.md", "utf8").split(/\r?\n/);
+            const start = lines.findIndex((l) => l.startsWith("## " + v + " "));
+            let end = lines.findIndex((l, i) => i > start && l.startsWith("## "));
+            if (end < 0) end = lines.length;
+            const body = lines.slice(start + 1, end).join("\n").trim();
+            fs.writeFileSync(process.env.RUNNER_TEMP + "/notes.md", body || "See CHANGELOG.md.");
+          '
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Verify
+        env:
+          LOG_LEVEL: error
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm lint
+          pnpm build
+          pnpm test
+          test "$(node dist/index.js --version)" = "photoshop-ai-mcp ${{ steps.meta.outputs.version }}"
+
+      - name: Commit version bump
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json CHANGELOG.md
+          git diff --staged --quiet && { echo "Nothing to commit"; exit 0; }
+          git commit -m "chore(release): ${{ steps.meta.outputs.tag }}"
+          git push origin "HEAD:${{ inputs.branch }}"
+
+      - name: Create and push tag
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git tag -a "${{ steps.meta.outputs.tag }}" -m "Release ${{ steps.meta.outputs.tag }}"
+          git push origin "${{ steps.meta.outputs.tag }}"
+
+      - name: Create GitHub Release
+        if: ${{ !inputs.dry_run }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.tag }}
+          body_path: ${{ runner.temp }}/notes.md
+          generate_release_notes: true
+          prerelease: ${{ inputs.prerelease }}
+          draft: false
+
+      - name: Dry run summary
+        if: ${{ inputs.dry_run }}
+        run: |
+          echo "Dry run: would release ${{ steps.meta.outputs.tag }}"
+          git --no-pager diff -- package.json CHANGELOG.md
+
+  deploy:
+    name: Trigger CD
+    needs: prepare
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch CD for the new tag
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # Tags pushed with GITHUB_TOKEN do not trigger other workflows, so start CD explicitly.
+          gh workflow run cd.yml --repo "${{ github.repository }}" -f tag="${{ needs.prepare.outputs.tag }}"
+          echo "Dispatched CD for ${{ needs.prepare.outputs.tag }}"

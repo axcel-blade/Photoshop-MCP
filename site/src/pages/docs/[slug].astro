@@ -1,0 +1,21 @@
+---
+import DocsNav from "../../components/DocsNav.astro";
+import Layout from "../../layouts/Layout.astro";
+import { docs, REPO, type Doc } from "../../lib/docs";
+
+export function getStaticPaths() {
+  return docs.map((doc) => ({ params: { slug: doc.slug }, props: { doc } }));
+}
+interface Props { doc: Doc }
+const { doc } = Astro.props;
+const { Content } = doc.entry;
+---
+<Layout title={doc.title}>
+  <div class="docs">
+    <DocsNav current={doc.slug} />
+    <article class="prose">
+      <Content />
+      <p class="edit"><a href={`${REPO}/edit/main/docs/${doc.file}.md`}>Edit this page on GitHub</a></p>
+    </article>
+  </div>
+</Layout>

@@ -1,0 +1,111 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { href, REPO, toolCount, VERSION } from "../lib/docs";
+
+const site = (Astro.site?.href ?? "").replace(/\/$/, "") + import.meta.env.BASE_URL.replace(/\/$/, "");
+const win = `irm ${site}/install.ps1 | iex`;
+const mac = `curl -fsSL ${site}/install.sh | bash`;
+const tools = toolCount();
+---
+<Layout title="Photoshop MCP">
+  <section class="hero">
+    <h1>Design and retouch in Photoshop by describing it.</h1>
+    <p class="lede">
+      An MCP server that lets Claude, ChatGPT and other AI assistants drive Adobe Photoshop. It turns briefs for posters,
+      social graphics, composites and photo edits into layered documents, then inspects, exports and revises them.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="#install">Install</a>
+      <a class="btn" href={href("/docs/tools/")}>Browse {tools} tools</a>
+      <a class="btn" href={REPO}>View on GitHub</a>
+    </div>
+  </section>
+
+  <section class="section" id="install" aria-labelledby="install-h">
+    <h2 id="install-h">Install</h2>
+    <div class="install">
+      <div class="card">
+        <h3>Windows</h3>
+        <p>Installs the server to <code>%LOCALAPPDATA%\PhotoshopMCP</code> and registers it with your AI clients.</p>
+        <ol class="steps">
+          <li>Press <kbd>Win</kbd>+<kbd>R</kbd>, type <strong>powershell</strong> and press <kbd>Enter</kbd> (no admin needed).</li>
+          <li>Click <strong>Copy</strong> below, then paste into PowerShell with a right-click or <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
+          <li>Press <kbd>Enter</kbd> and wait for it to finish.</li>
+        </ol>
+        <div class="cmd"><code>{win}</code><button type="button" data-copy={win}>Copy</button></div>
+      </div>
+      <div class="card">
+        <h3>macOS</h3>
+        <p>Installs the server to <code>~/Library/Application Support/PhotoshopMCP</code> and registers it with your AI clients.</p>
+        <ol class="steps">
+          <li>Press <kbd>Cmd</kbd>+<kbd>Space</kbd>, type <strong>Terminal</strong> and press <kbd>Enter</kbd>.</li>
+          <li>Click <strong>Copy</strong> below, then paste into Terminal with <kbd>Cmd</kbd>+<kbd>V</kbd>.</li>
+          <li>Press <kbd>Enter</kbd> and wait for it to finish.</li>
+        </ol>
+        <div class="cmd"><code>{mac}</code><button type="button" data-copy={mac}>Copy</button></div>
+      </div>
+    </div>
+    <p class="note">
+      Configures every MCP client it finds: Claude Desktop, Claude Code, Cursor, Windsurf, VS Code (Copilot), Cline, Roo Code,
+      Gemini CLI and Codex. Existing configs are merged, with a backup. Scripts: <a href={href("/install.ps1")}>install.ps1</a>,
+      <a href={href("/install.sh")}>install.sh</a>. <a href={href("/docs/configuration/#mcp-clients-the-installers-configure")}>Details</a>.
+    </p>
+
+    <div class="card stack">
+      <h3>After install</h3>
+      <ol class="steps">
+        <li>Start <strong>Adobe Photoshop</strong> (tested with Photoshop 2027). Nothing needs installing inside Photoshop.</li>
+        <li>On macOS, allow Terminal or Node to control Photoshop when asked (System Settings → Privacy &amp; Security → Automation).</li>
+        <li>Fully quit and reopen your MCP client, then ask: <em>"Check the Photoshop status, then make a 1080×1080 poster that says 'Summer Sale'."</em></li>
+      </ol>
+    </div>
+
+    <div class="card stack">
+      <h3>Manual install</h3>
+      <p>Needs Git, Node.js 20+ and pnpm (via Corepack).</p>
+      <ol class="steps">
+        <li>Clone the repo: <code>git clone {REPO}.git</code>, then <code>cd Photoshop-MCP</code>.</li>
+        <li>Install and build: <code>corepack enable</code>, <code>pnpm install</code>, <code>pnpm build</code>.</li>
+        <li>Register it with Claude Desktop: <code>scripts\install.ps1 -ConfigureClaude</code> on Windows or <code>./scripts/install.sh --configure-claude</code> on macOS.</li>
+        <li>Check the setup: <code>scripts\diagnostics.ps1</code> or <code>./scripts/diagnostics.sh</code>.</li>
+        <li>Then follow the <strong>After install</strong> steps above.</li>
+      </ol>
+      <p class="note">Full guide, ChatGPT and remote HTTP: <a href={href("/docs/installation/")}>installation guide</a>.</p>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="what-h">
+    <h2 id="what-h">What it does</h2>
+    <div class="features">
+      <div class="card"><div class="stat">{tools}</div><p>MCP tools: documents, layers, text, shapes, selections and masks, retouching, color correction, filters, compositing, smart objects, actions, batch processing and exports.</p></div>
+      <div class="card"><div class="stat">Plans</div><p>A design engine turns a brief into a structured plan (layout, type scale, palette) you can review before anything is drawn.</p></div>
+      <div class="card"><div class="stat">Editable</div><p>Everything is native Photoshop layers, adjustment layers and smart objects, named, not a flattened image, so you can keep working by hand.</p></div>
+      <div class="card"><div class="stat">Checked</div><p>Results come from Photoshop itself. Previews, critiques and automatic fixes close the loop, and file access is limited to folders you allow.</p></div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="how-h">
+    <h2 id="how-h">How it works</h2>
+    <ol class="flow">
+      <li>You ask your assistant for a design.</li>
+      <li>The server plans it and validates the plan.</li>
+      <li>Photoshop builds it through COM (Windows) or AppleScript (macOS).</li>
+      <li>The assistant inspects a preview and revises.</li>
+    </ol>
+    <p class="note">Details: <a href={href("/docs/architecture/")}>architecture</a>, <a href={href("/docs/examples/")}>example prompts</a>, <a href={href("/docs/limitations/")}>limitations</a>. Current release: <a href={`${REPO}/releases/latest`}>v{VERSION}</a>.</p>
+  </section>
+
+  <script>
+    for (const btn of document.querySelectorAll<HTMLButtonElement>("button[data-copy]")) {
+      btn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(btn.dataset.copy ?? "");
+          btn.textContent = "Copied";
+        } catch {
+          btn.textContent = "Select it";
+        }
+        setTimeout(() => (btn.textContent = "Copy"), 1600);
+      });
+    }
+  </script>
+</Layout>

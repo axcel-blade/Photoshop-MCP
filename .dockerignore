@@ -1,0 +1,17 @@
+# Docker build context is the repository root (site/Dockerfile*). Send only what the site needs.
+**/node_modules
+**/dist
+site/.astro
+site/public/install.ps1
+site/public/install.sh
+.git
+release
+output
+logs
+test-output
+coverage
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
