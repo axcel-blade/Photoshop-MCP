@@ -17,6 +17,8 @@ export interface AppConfig {
   allowedPaths: string[];
   outputDir: string;
   maxBatchFiles: number;
+  download: { maxBytes: number; timeoutMs: number; allowPrivate: boolean; retries: number };
+  assets: { dir: string; maxPixels: number; maxDimension: number; searchTimeoutMs: number; keys: { unsplash?: string; pexels?: string; pixabay?: string; serpapi?: string; googleCseKey?: string; googleCseId?: string } };
   logLevel: string;
   logDir?: string;
 }
@@ -74,6 +76,20 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, argv: string[] 
     allowedPaths,
     outputDir: allowedPaths[0]!,
     maxBatchFiles: int(env.MAX_BATCH_FILES, 200, 1, 10_000),
+    download: {
+      maxBytes: int(env.MAX_DOWNLOAD_MB, 50, 1, 2048) * 1024 * 1024,
+      timeoutMs: int(env.DOWNLOAD_TIMEOUT_MS, 30_000, 1000, 600_000),
+      allowPrivate: env.ALLOW_PRIVATE_DOWNLOADS === "true",
+      retries: int(env.DOWNLOAD_RETRIES, 2, 0, 10),
+    },
+    assets: {
+      dir: env.ASSETS_DIR ? resolve(allowedPaths[0]!, env.ASSETS_DIR) : join(allowedPaths[0]!, "assets"),
+      maxPixels: int(env.MAX_IMAGE_MEGAPIXELS, 200, 1, 2000) * 1_000_000,
+      maxDimension: int(env.MAX_IMAGE_DIMENSION, 30000, 16, 300000),
+      searchTimeoutMs: int(env.IMAGE_SEARCH_TIMEOUT_MS, 15_000, 1000, 120_000),
+      keys: { unsplash: env.UNSPLASH_ACCESS_KEY || undefined, pexels: env.PEXELS_API_KEY || undefined, pixabay: env.PIXABAY_API_KEY || undefined,
+        serpapi: env.SERPAPI_API_KEY || undefined, googleCseKey: env.GOOGLE_CSE_API_KEY || undefined, googleCseId: env.GOOGLE_CSE_ID || undefined },
+    },
     logLevel: env.LOG_LEVEL ?? "info",
     logDir: env.LOG_DIR ? resolve(PROJECT_ROOT, env.LOG_DIR) : undefined,
   };

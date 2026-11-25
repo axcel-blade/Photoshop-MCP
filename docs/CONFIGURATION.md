@@ -10,6 +10,19 @@ Settings are environment variables. The server loads `.env` from the project roo
 | `PHOTOSHOP_AUTO_LAUNCH` | `true` | Start Photoshop on the first call if it is not running (`false` to fail with `PHOTOSHOP_NOT_RUNNING`) |
 | `ALLOWED_PATHS` | `output;%USERPROFILE%\Documents\PhotoshopMCP` | `;`-separated sandbox roots; relative paths resolve against the first |
 | `MAX_BATCH_FILES` | `200` | Max files per batch tool |
+| `MAX_DOWNLOAD_MB` | `50` | Max size of one image downloaded by the asset tools or `place_image`/`import_image` with `url` |
+| `DOWNLOAD_TIMEOUT_MS` | `30000` | Timeout for one image download (all redirects included) |
+| `ALLOW_PRIVATE_DOWNLOADS` | `false` | Allow downloads from localhost/private-network addresses (blocked by default to prevent SSRF) |
+| `ASSETS_DIR` | `<first allowed path>/assets` | Asset library folder (must be inside `ALLOWED_PATHS`); see [IMAGE_ASSETS](IMAGE_ASSETS.md) |
+| `UNSPLASH_ACCESS_KEY` | – | Enables Unsplash search |
+| `PEXELS_API_KEY` | – | Enables Pexels search |
+| `PIXABAY_API_KEY` | – | Enables Pixabay search |
+| `SERPAPI_API_KEY` | – | Enables Google Images search via SerpApi (results have unverified licences) |
+| `GOOGLE_CSE_API_KEY` / `GOOGLE_CSE_ID` | – | Google Images via the Custom Search JSON API (existing customers only; shuts down 2027-01-01) |
+| `DOWNLOAD_RETRIES` | `2` | Retries for network errors, HTTP 429 and 5xx |
+| `MAX_IMAGE_DIMENSION` | `30000` | Max width or height of a downloaded image |
+| `MAX_IMAGE_MEGAPIXELS` | `200` | Max pixel count of a downloaded image |
+| `IMAGE_SEARCH_TIMEOUT_MS` | `15000` | Timeout per provider search request |
 | `MCP_TRANSPORT` | `stdio` | `stdio` or `http` (also `--transport http`) |
 | `MCP_HTTP_HOST` | `127.0.0.1` | HTTP bind address |
 | `MCP_HTTP_PORT` | `3333` | HTTP port |

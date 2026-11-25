@@ -5,7 +5,24 @@ MCP.requirePixels = function (l, what) {
   var b = MCP.boundsOf(l.bounds);
   if (b.width <= 0 || b.height <= 0) MCP.fail("VALIDATION_ERROR", "Layer \"" + l.name + "\" is empty; nothing to " + what + ".");
 };
-MCP.refs = function (d, list) { return MCP.map(list || [], function (r) { return MCP.getLayer(d, r); }); };
+/* Resolve many layer refs with ONE walk of the layer tree. Reading layer properties through the DOM is slow,
+   so calling getLayer per ref was O(refs x layers) and timed out when grouping ~60 layers in a ~250-layer document. */
+MCP.refs = function (d, list) {
+  list = list || [];
+  if (list.length <= 1) return MCP.map(list, function (r) { return MCP.getLayer(d, r); });
+  var all = MCP.allLayers(d), byId = {}, byName = {};
+  for (var i = 0; i < all.length; i++) {
+    var l = all[i], idKey = "i" + l.id, nameKey = "n" + l.name;
+    if (!byId.hasOwnProperty(idKey)) byId[idKey] = l;
+    if (!byName.hasOwnProperty(nameKey)) byName[nameKey] = l;
+  }
+  return MCP.map(list, function (r) {
+    if (!r) return MCP.getLayer(d, r);
+    var hit = (r.id !== undefined && byId["i" + r.id]) || (r.name !== undefined && byName["n" + r.name]);
+    if (!hit) MCP.fail("LAYER_NOT_FOUND", "Layer not found: " + MCP.stringify(r));
+    return hit;
+  });
+};
 MCP.ANCH = { center: "MIDDLECENTER", topLeft: "TOPLEFT", top: "TOPCENTER", bottom: "BOTTOMCENTER" };
 
 MCP.tree = function (container, opts, out) {
