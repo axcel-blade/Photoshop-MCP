@@ -14,6 +14,8 @@ export interface DownloadOptions {
   timeoutMs: number;
   allowPrivate: boolean;
   maxRedirects?: number;
+  /** When set, the URL and every redirect must stay on these hosts (or their subdomains). */
+  allowedHosts?: string[];
   /** Injectable for tests. */
   fetchImpl?: typeof fetch;
   resolveHost?: (host: string) => Promise<string[]>;
@@ -57,7 +59,7 @@ export function sniffImageFormat(b: Buffer): DownloadFormat | undefined {
     if (brand === "avif" || brand === "avis") return "avif";
     if (["heic", "heix", "hevc", "mif1", "msf1"].includes(brand)) return "heic";
   }
-  const text = b.subarray(0, 1024).toString("utf8").replace(/^﻿/, "").trimStart();
+  const text = b.subarray(0, 1024).toString("utf8").replace(/^\s+/, "").trimStart();
   if (/^(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*(<!DOCTYPE svg[^>]*>\s*)?<svg[\s>]/i.test(text)) return "svg";
   return undefined;
 }
@@ -75,6 +77,12 @@ async function checkUrl(raw: string, opts: DownloadOptions): Promise<URL> {
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") throw new PsMcpError("VALIDATION_ERROR", `Only http and https URLs can be downloaded, got ${url.protocol}`);
   if (url.username || url.password) throw new PsMcpError("VALIDATION_ERROR", "URLs with embedded credentials are not allowed");
+  if (opts.allowedHosts?.length) {
+    const h = url.hostname.toLowerCase();
+    if (!opts.allowedHosts.some((a) => h === a || h.endsWith(`.${a}`))) {
+      throw new PsMcpError("PATH_NOT_ALLOWED", `Download host ${h} is not an approved host for this provider (${opts.allowedHosts.join(", ")})`);
+    }
+  }
   if (!opts.allowPrivate) {
     const host = url.hostname.replace(/^\[|\]$/g, "");
     const addrs = isIP(host) ? [host] : await (opts.resolveHost ?? defaultResolve)(host).catch(() => {
@@ -102,7 +110,7 @@ export async function downloadImage(rawUrl: string, opts: DownloadOptions): Prom
       res = await doFetch(url, { redirect: "manual", signal, headers: { accept: "image/*,*/*;q=0.5", "user-agent": "photoshop-ai-mcp" } });
     } catch (e) {
       const timeout = (e as Error).name === "TimeoutError" || (e as Error).name === "AbortError";
-      throw new PsMcpError("PROVIDER_ERROR", timeout ? `Download timed out after ${opts.timeoutMs} ms` : `Download failed: ${(e as Error).message}`);
+      throw new PsMcpError("PROVIDER_ERROR", timeout ? `Download timed out after ${opts.timeoutMs} ms` : `Download failed: ${(e as Error).message}`, { retryable: !timeout });
     }
     if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
       if (hop >= maxRedirects) throw new PsMcpError("PROVIDER_ERROR", `Too many redirects (>${maxRedirects})`);
@@ -111,7 +119,7 @@ export async function downloadImage(rawUrl: string, opts: DownloadOptions): Prom
     }
     break;
   }
-  if (!res.ok) throw new PsMcpError("PROVIDER_ERROR", `Download failed: HTTP ${res.status} ${res.statusText}`.trim());
+  if (!res.ok) throw new PsMcpError("PROVIDER_ERROR", `Download failed: HTTP ${res.status} ${res.statusText}`.trim(), { status: res.status, retryable: res.status === 429 || res.status >= 500 });
   const declared = Number(res.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > opts.maxBytes) {
     throw new PsMcpError("LIMIT_EXCEEDED", `Image is ${declared} bytes; the limit is ${opts.maxBytes} (MAX_DOWNLOAD_MB)`);
@@ -141,5 +149,28 @@ export async function downloadImage(rawUrl: string, opts: DownloadOptions): Prom
   if (!format) {
     throw new PsMcpError("VALIDATION_ERROR", `The URL did not return a supported image (content-type: ${res.headers.get("content-type") ?? "none"}). Supported: ${DOWNLOAD_FORMATS.join(", ")}`);
   }
+  if (format === "svg") assertSafeSvg(bytes);
   return { bytes, format, finalUrl: url.toString(), contentType: res.headers.get("content-type") ?? undefined };
+}
+
+/** Reject SVGs that carry scripts, event handlers, external references or embedded HTML. */
+export function assertSafeSvg(bytes: Buffer): void {
+  const t = bytes.toString("utf8");
+  if (/<script[\s>]|<foreignObject[\s>]|\son[a-z]+\s*=|javascript:|<!ENTITY|<iframe|<embed|<object/i.test(t)) {
+    throw new PsMcpError("VALIDATION_ERROR", "SVG rejected: it contains scripts, event handlers, entities or embedded content");
+  }
+}
+
+/** downloadImage with retries (exponential back-off) for network errors, 429 and 5xx. */
+export async function downloadWithRetry(url: string, opts: DownloadOptions & { retries?: number; backoffMs?: number }): Promise<DownloadResult & { attempts: number }> {
+  const retries = opts.retries ?? 2;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return { ...(await downloadImage(url, opts)), attempts: attempt + 1 };
+    } catch (e) {
+      const retryable = (e as { details?: { retryable?: boolean } }).details?.retryable === true;
+      if (!retryable || attempt >= retries) throw e;
+      await new Promise((r) => setTimeout(r, (opts.backoffMs ?? 500) * 2 ** attempt));
+    }
+  }
 }

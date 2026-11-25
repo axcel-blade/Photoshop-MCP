@@ -1,84 +1,31 @@
-import { existsSync, readdirSync, writeFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { z } from "zod";
 import { PsMcpError, SAVE_FORMATS } from "../../shared.js";
 import { IMAGE_INPUT_EXTENSIONS } from "../../utils/paths.js";
 import { readImageMeta } from "../../utils/image-meta.js";
-import { DOWNLOAD_EXTENSIONS, DOWNLOAD_FORMATS, downloadImage } from "../../utils/download.js";
-import { cmd, DESTRUCTIVE, EXTERNAL, READ_ONLY, requireConfirm, Sequence, tool, WRITE } from "./registry.js";
+import { AssetLibrary } from "../../assets/library.js";
+import { cmd, DESTRUCTIVE, READ_ONLY, requireConfirm, Sequence, tool, WRITE } from "./registry.js";
 import type { ToolContext } from "./registry.js";
 import { confirm, doc, inputPath, layer, name, outputPath, overwrite, path, rect } from "./args.js";
 
 const M = "images";
 const fit = z.enum(["contain", "cover", "stretch", "none"]).default("contain");
-const url = z.string().url().max(4096).describe("http(s) URL of a PNG, JPEG, GIF, WebP, BMP, TIFF, AVIF, HEIC or SVG image");
-const savePath = z.string().min(1).max(1024).optional().describe("Where to save the download inside the allowed directories. Default: downloads/<name from URL>.<detected ext>. A missing extension is added.");
-
-/** Same format family (jpg == jpeg, tif == tiff). */
-function extMatches(ext: string, format: string): boolean {
-  const e = ext.toLowerCase();
-  return e === DOWNLOAD_EXTENSIONS[format as keyof typeof DOWNLOAD_EXTENSIONS] || (format === "jpg" && e === ".jpeg") || (format === "tiff" && e === ".tiff");
-}
-
-function nameFromUrl(u: string): string {
-  const last = decodeURIComponent(new URL(u).pathname.split("/").filter(Boolean).pop() ?? "");
-  const stem = last.replace(/\.[^.]*$/, "").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
-  return stem || "image";
-}
-
-/** Download an image URL into the sandbox and return its local path. */
-export async function fetchToSandbox(ctx: ToolContext, u: string, p: string | undefined, ow: boolean): Promise<{ path: string; format: string; bytes: number; finalUrl: string; width?: number; height?: number }> {
-  const dl = await downloadImage(u, ctx.config.download);
-  const ext = DOWNLOAD_EXTENSIONS[dl.format];
-  let target: string;
-  if (p) {
-    const given = extname(p);
-    if (!given) target = p + ext;
-    else if (extMatches(given, dl.format)) target = p;
-    else throw new PsMcpError("VALIDATION_ERROR", `The URL returned a ${dl.format.toUpperCase()} image but the path ends in ${given}; use ${ext} or omit the extension.`);
-  } else {
-    const stem = join("downloads", nameFromUrl(dl.finalUrl));
-    target = stem + ext;
-    for (let i = 2; existsSync(ctx.paths.resolve(target)) && i < 10000; i++) target = `${stem}-${i}${ext}`;
-  }
-  const full = ctx.paths.resolveOutput(target, { extensions: [ext, ...(dl.format === "jpg" ? [".jpeg"] : dl.format === "tiff" ? [".tiff"] : [])], overwrite: !!p && ow });
-  writeFileSync(full, dl.bytes);
-  const meta = readImageMeta(full);
-  return { path: full, format: dl.format, bytes: dl.bytes.length, finalUrl: dl.finalUrl, width: meta.width, height: meta.height };
-}
+const url = z.string().url().max(4096).describe("http(s) URL of a PNG, JPEG, GIF, WebP, BMP, TIFF, AVIF, HEIC or SVG image (downloaded into the asset library first)");
 
 /** Local path from either `path` or `url` (downloaded first). */
 async function sourcePath(ctx: ToolContext, a: { path?: string; url?: string }, warnings: string[]): Promise<string> {
   if (a.path && a.url) throw new PsMcpError("VALIDATION_ERROR", "Pass either path or url, not both");
   if (a.url) {
-    const d = await fetchToSandbox(ctx, a.url, undefined, false);
-    warnings.push(`Downloaded ${a.url} to ${d.path}. Check that you have the right to use this image.`);
-    return d.path;
+    const { record } = await new AssetLibrary({ config: ctx.config, paths: ctx.paths }).download({ url: a.url });
+    warnings.push(`Downloaded ${a.url} to ${record.file}. Check that you have the right to use this image.`);
+    return record.file;
   }
   if (!a.path) throw new PsMcpError("VALIDATION_ERROR", "Pass path (a local file) or url (an image on the internet)");
   return inputPath(ctx, a.path);
 }
 
 export function registerImageTools(): void {
-  tool({
-    name: "download_image", module: M,
-    description: `Download an image from the internet (http/https) into the allowed directories so it can be opened, placed or used in a design. Formats are detected from the bytes: ${DOWNLOAD_FORMATS.join(", ")}. Local/private network addresses are blocked unless ALLOW_PRIVATE_DOWNLOADS=true. Optionally place it into the active document or open it as a new one.`,
-    annotations: EXTERNAL, commands: ["image.place", "doc.open"],
-    input: {
-      url, path: savePath, overwrite,
-      then: z.enum(["none", "place", "open"]).default("none").describe("After downloading: nothing, place into the document as a smart object, or open as a new document"),
-      doc, name, x: z.number().optional(), y: z.number().optional(), width: z.number().min(1).optional(), height: z.number().min(1).optional(), fit,
-    },
-    handler: async (a, ctx) => {
-      const d = await fetchToSandbox(ctx, a.url, a.path, a.overwrite);
-      const warnings = ["Check that you have the right to use downloaded images (licence / attribution)."];
-      if (a.then === "none") return { data: { downloaded: d }, warnings, source: "server" };
-      const out = a.then === "open"
-        ? await cmd(ctx, "doc.open", { path: d.path })
-        : await cmd(ctx, "image.place", { doc: a.doc, path: d.path, name: a.name, x: a.x, y: a.y, width: a.width, height: a.height, fit: a.fit, linked: false });
-      return { data: { downloaded: d, ...(out.data as object) }, warnings: [...warnings, ...(out.warnings ?? [])] };
-    },
-  });
   tool({
     name: "import_image", module: M, description: "Open an image as a new document, from a local path or an internet url (downloaded first).", annotations: WRITE, commands: ["doc.open"],
     input: { path: path.optional(), url: url.optional() },
@@ -88,7 +35,7 @@ export function registerImageTools(): void {
     },
   });
   tool({
-    name: "place_image", module: M, description: "Place an image into the document as an embedded smart object, optionally fitted into a box (x, y, width, height). Source is a local path or an internet url (downloaded into downloads/ first).", annotations: WRITE, commands: ["image.place"],
+    name: "place_image", module: M, description: "Place an image into the document as an embedded smart object, optionally fitted into a box (x, y, width, height). Source is a local path or an internet url (downloaded into the asset library first).", annotations: WRITE, commands: ["image.place"],
     input: { doc, path: path.optional(), url: url.optional(), name, x: z.number().optional(), y: z.number().optional(), width: z.number().min(1).optional(), height: z.number().min(1).optional(), fit, linked: z.boolean().default(false) },
     handler: async (a, ctx) => {
       const w: string[] = [];

@@ -3,9 +3,18 @@
 ## Unreleased
 
 ### Added
-- `download_image` tool: download PNG, JPEG, GIF, WebP, BMP, TIFF, AVIF, HEIC or SVG images from http(s) URLs into the sandbox (format detected from bytes, size cap, timeout, private-network/SSRF blocking re-checked on every redirect), optionally placing or opening them.
-- `place_image` and `import_image` accept `url` as an alternative to `path`.
-- Settings `MAX_DOWNLOAD_MB`, `DOWNLOAD_TIMEOUT_MS`, `ALLOW_PRIVATE_DOWNLOADS`.
+- Internet image search & asset library (`assets` module, see `docs/IMAGE_ASSETS.md`): `search_images`, `search_stock_photos`, `search_transparent_images`, `search_icons`, `search_textures`, `get_image_details`, `filter_images`, `download_image`, `download_multiple_images`, `import_image_to_photoshop`, `import_multiple_images`, `get_downloaded_assets`.
+- Providers: Openverse and Wikimedia Commons (no key), Unsplash, Pexels and Pixabay (optional keys). Results are normalized with creator, licence and attribution; paid/premium and non-free results are excluded; per-provider throttling and 429 back-off.
+- Safe downloads: magic-byte type checks (PNG, JPEG, GIF, WebP, BMP, TIFF, AVIF, HEIC, script-free SVG), provider host allowlists, SSRF protection on every redirect, byte/pixel/dimension limits, retries, sanitized unique filenames, SHA-256 de-duplication, JSON sidecars and a manifest preserving source URL, creator and licence.
+- Google Images provider (`google`) via SerpApi (`SERPAPI_API_KEY`) or the Google Custom Search JSON API (`GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_ID`; shuts down 2027-01-01). No scraping. Results carry `licenseStatus: "unverified"`, and search, download and import warn about it.
+- `place_image` and `import_image` accept `url`.
+
+### Fixed
+- Bridge: multi-layer references (e.g. `group_layers` with dozens of layers) are resolved in one layer-tree walk instead of one walk per reference; grouping ~60 layers in a ~250-layer document no longer times out.
+- Bridge: an adjustment created with `clip: true` on a **group** is now placed directly above the group and clipped to the whole group; before, Photoshop created it inside the group, clipped to the group's top layer only.
+- Asset records report real `transparency` (`alpha`/`none`) from the file header. Search results skip non-image files (Wikimedia PDF/DjVu scans), and an empty search suggests broader keywords.
+- `design_with_web_assets` prompt: brief → assets → search → licence check → download → import as layers → continue designing → credits.
+- Settings `ASSETS_DIR`, `UNSPLASH_ACCESS_KEY`, `PEXELS_API_KEY`, `PIXABAY_API_KEY`, `MAX_DOWNLOAD_MB`, `DOWNLOAD_TIMEOUT_MS`, `DOWNLOAD_RETRIES`, `MAX_IMAGE_DIMENSION`, `MAX_IMAGE_MEGAPIXELS`, `IMAGE_SEARCH_TIMEOUT_MS`, `ALLOW_PRIVATE_DOWNLOADS`.
 
 ## 1.0.0 — 2026-11-25
 

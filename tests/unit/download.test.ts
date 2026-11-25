@@ -56,43 +56,31 @@ describe("download helpers", () => {
   });
 });
 
-describe("download tools (mock Photoshop)", () => {
+describe("url downloads via place_image / import_image (mock Photoshop)", () => {
   let t: Awaited<ReturnType<typeof setup>>;
   const realFetch = globalThis.fetch;
+  const u = "https://img.example.com/photos/Sunset%20Beach.png";
   beforeAll(async () => {
     t = await setup({ ALLOW_PRIVATE_DOWNLOADS: "true" });
-    globalThis.fetch = fakeFetch({ "https://img.example.com/photos/Sunset%20Beach.png": () => new Response(png, { headers: { "content-type": "image/png" } }) });
+    globalThis.fetch = fakeFetch({ [u]: () => new Response(png, { headers: { "content-type": "image/png" } }) });
   });
   afterAll(async () => {
     globalThis.fetch = realFetch;
     await t.close();
   });
 
-  it("download_image saves into downloads/ with a detected extension and no silent overwrite", async () => {
-    const u = "https://img.example.com/photos/Sunset%20Beach.png";
-    const a = await t.call("download_image", { url: u });
-    expect(a.ok).toBe(true);
-    expect(a.data.downloaded).toMatchObject({ format: "png", width: 4, height: 3 });
-    expect(a.data.downloaded.path).toMatch(/downloads[\\/]Sunset-Beach\.png$/);
-    expect(readFileSync(a.data.downloaded.path).equals(png)).toBe(true);
-    const b = await t.call("download_image", { url: u });
-    expect(b.data.downloaded.path).toMatch(/Sunset-Beach-2\.png$/);
-    const named = await t.call("download_image", { url: u, path: "assets/hero" });
-    expect(named.data.downloaded.path).toMatch(/assets[\\/]hero\.png$/);
-    expect((await t.call("download_image", { url: u, path: "assets/hero.png" })).error.code).toBe("FILE_EXISTS");
-    expect((await t.call("download_image", { url: u, path: "assets/x.jpg" })).error.code).toBe("VALIDATION_ERROR");
-    expect((await t.call("download_image", { url: "https://img.example.com/missing.png" })).error.code).toBe("PROVIDER_ERROR");
-  });
-
-  it("place_image and import_image accept a url", async () => {
+  it("place_image and import_image accept a url and store it in the asset library", async () => {
     await t.call("create_document", { width: 400, height: 300 });
-    const p = await t.call("place_image", { url: "https://img.example.com/photos/Sunset%20Beach.png", x: 10, y: 10, width: 100, height: 100 });
+    const p = await t.call("place_image", { url: u, x: 10, y: 10, width: 100, height: 100 });
     expect(p.ok).toBe(true);
     expect(p.warnings.join(" ")).toMatch(/Downloaded/);
-    const d = await t.call("download_image", { url: "https://img.example.com/photos/Sunset%20Beach.png", then: "place" });
-    expect(d.ok).toBe(true);
-    expect(existsSync(d.data.downloaded.path)).toBe(true);
-    expect((await t.call("import_image", { url: "https://img.example.com/photos/Sunset%20Beach.png" })).ok).toBe(true);
+    const d = await t.call("download_image", { url: u });
+    expect(d.data.duplicate).toBe(true);
+    expect(d.data.asset.file).toMatch(/assets[\\/]web[\\/]sunset-beach-[0-9a-f]{6}\.png$/);
+    expect(readFileSync(d.data.asset.file).equals(png)).toBe(true);
+    expect(existsSync(`${d.data.asset.file}.json`)).toBe(true);
+    expect((await t.call("import_image", { url: u })).ok).toBe(true);
     expect((await t.call("place_image", {})).error.code).toBe("VALIDATION_ERROR");
+    expect((await t.call("download_image", { url: "https://img.example.com/missing.png" })).error.code).toBe("PROVIDER_ERROR");
   });
 });
