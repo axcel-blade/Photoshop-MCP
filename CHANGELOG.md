@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.1.0 — 2026-11-25
+
 ### Added
 - Internet image search & asset library (`assets` module, see `docs/IMAGE_ASSETS.md`): `search_images`, `search_stock_photos`, `search_transparent_images`, `search_icons`, `search_textures`, `get_image_details`, `filter_images`, `download_image`, `download_multiple_images`, `import_image_to_photoshop`, `import_multiple_images`, `get_downloaded_assets`.
 - Providers: Openverse and Wikimedia Commons (no key), Unsplash, Pexels and Pixabay (optional keys). Results are normalized with creator, licence and attribution; paid/premium and non-free results are excluded; per-provider throttling and 429 back-off.
