@@ -4,18 +4,44 @@ import { z } from "zod";
 import { PsMcpError, SAVE_FORMATS } from "../../shared.js";
 import { IMAGE_INPUT_EXTENSIONS } from "../../utils/paths.js";
 import { readImageMeta } from "../../utils/image-meta.js";
+import { AssetLibrary } from "../../assets/library.js";
 import { cmd, DESTRUCTIVE, READ_ONLY, requireConfirm, Sequence, tool, WRITE } from "./registry.js";
+import type { ToolContext } from "./registry.js";
 import { confirm, doc, inputPath, layer, name, outputPath, overwrite, path, rect } from "./args.js";
 
 const M = "images";
 const fit = z.enum(["contain", "cover", "stretch", "none"]).default("contain");
+const url = z.string().url().max(4096).describe("http(s) URL of a PNG, JPEG, GIF, WebP, BMP, TIFF, AVIF, HEIC or SVG image (downloaded into the asset library first)");
+
+/** Local path from either `path` or `url` (downloaded first). */
+async function sourcePath(ctx: ToolContext, a: { path?: string; url?: string }, warnings: string[]): Promise<string> {
+  if (a.path && a.url) throw new PsMcpError("VALIDATION_ERROR", "Pass either path or url, not both");
+  if (a.url) {
+    const { record } = await new AssetLibrary({ config: ctx.config, paths: ctx.paths }).download({ url: a.url });
+    warnings.push(`Downloaded ${a.url} to ${record.file}. Check that you have the right to use this image.`);
+    return record.file;
+  }
+  if (!a.path) throw new PsMcpError("VALIDATION_ERROR", "Pass path (a local file) or url (an image on the internet)");
+  return inputPath(ctx, a.path);
+}
 
 export function registerImageTools(): void {
-  tool({ name: "import_image", module: M, description: "Open an image file as a new document.", annotations: WRITE, commands: ["doc.open"], input: { path }, handler: (a, ctx) => cmd(ctx, "doc.open", { path: inputPath(ctx, a.path) }) });
   tool({
-    name: "place_image", module: M, description: "Place an image file into the document as an embedded smart object, optionally fitted into a box (x, y, width, height).", annotations: WRITE, commands: ["image.place"],
-    input: { doc, path, name, x: z.number().optional(), y: z.number().optional(), width: z.number().min(1).optional(), height: z.number().min(1).optional(), fit, linked: z.boolean().default(false) },
-    handler: (a, ctx) => cmd(ctx, "image.place", { ...a, path: inputPath(ctx, a.path) }),
+    name: "import_image", module: M, description: "Open an image as a new document, from a local path or an internet url (downloaded first).", annotations: WRITE, commands: ["doc.open"],
+    input: { path: path.optional(), url: url.optional() },
+    handler: async (a, ctx) => {
+      const w: string[] = [];
+      return cmd(ctx, "doc.open", { path: await sourcePath(ctx, a, w) }, w);
+    },
+  });
+  tool({
+    name: "place_image", module: M, description: "Place an image into the document as an embedded smart object, optionally fitted into a box (x, y, width, height). Source is a local path or an internet url (downloaded into the asset library first).", annotations: WRITE, commands: ["image.place"],
+    input: { doc, path: path.optional(), url: url.optional(), name, x: z.number().optional(), y: z.number().optional(), width: z.number().min(1).optional(), height: z.number().min(1).optional(), fit, linked: z.boolean().default(false) },
+    handler: async (a, ctx) => {
+      const w: string[] = [];
+      const { url: _u, ...rest } = a;
+      return cmd(ctx, "image.place", { ...rest, path: await sourcePath(ctx, a, w) }, w);
+    },
   });
   tool({
     name: "crop_image", module: M, description: "Crop the canvas to bounds (pixels outside are deleted unless layers extend beyond). Requires confirm: true.", annotations: DESTRUCTIVE, commands: ["doc.crop"],

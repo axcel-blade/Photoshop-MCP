@@ -15,6 +15,19 @@ interface P { name: string; title: string; description: string; args: Record<str
 
 const PROMPTS: P[] = [
   {
+    name: "design_with_web_assets", title: "Design with images from the internet", description: "Find, license-check, download and import web images, then build the design around them.",
+    args: { brief: "What to design (type, size, message, style, audience)", license: "Optional: any | commercial | no-attribution (default commercial)" },
+    body: ({ brief, license }) => `Design brief: ${brief ?? "(ask the user)"}.
+1. Understand the brief: format and canvas size, message, style, colour mood. Ask only for what is truly missing.
+2. List the visual assets the design needs (e.g. hero photo, background texture, 3 icons, a transparent product cut-out) with orientation and minimum pixel size for each (at least the area it will fill).
+3. Search for each asset with the most specific tool: search_stock_photos (photos), search_textures (backgrounds/overlays), search_icons (icons), search_transparent_images (cut-outs), or search_images. Pass orientation, minWidth/minHeight and license: "${license ?? "commercial"}".
+4. Select: use filter_images / get_image_details. Prefer images whose size, orientation and subject fit; reject anything whose licence does not allow the intended use. Never try to obtain watermarked, premium or paid content.
+5. Download the chosen assets with download_multiple_images (or download_image). Report failures and pick alternates.
+6. create_document at the target size, then import_multiple_images (or import_image_to_photoshop per asset) so each asset is its own named layer; use fitToCanvas for backgrounds, x/y/width/height/rotation for the rest, and group related layers.
+7. Continue designing: text (add_text, add_text_effect), shapes, adjustments (match_colors, adjust_*), effects, masks. capture_preview and refine.
+8. Credits: get_downloaded_assets { includeCredits: true }; add required attribution to the design or the delivery notes and tell the user which licences apply.${RULES}`,
+  },
+  {
     name: "professional_photo_retouch", title: "Professional photo retouching", description: "Non-destructive portrait/photo retouch workflow.",
     args: { goal: "What to achieve (e.g. natural magazine retouch)", blemishes: "Optional: blemish coordinates" },
     body: ({ goal, blemishes }) => `Retouch the active photo: ${goal ?? "natural, professional result"}.

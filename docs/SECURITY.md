@@ -22,6 +22,10 @@ Driving Photoshop from an AI agent means an untrusted model chooses tool calls. 
 - Review destructive confirmations; MCP clients show the `destructiveHint` annotation.
 - Recorded actions run with `run_action` can do anything Photoshop can; only run actions you trust.
 
+## Internet images
+
+Image search and downloads (see [IMAGE_ASSETS](IMAGE_ASSETS.md)) only fetch content. Files are accepted only if their bytes identify them as images; executables and scripted SVGs are rejected. Downloads by search id must stay on the provider's own image hosts. Other URLs must use http(s), and every host and redirect is resolved and refused if it points to a loopback, private, link-local or reserved address (SSRF protection; `ALLOW_PRIVATE_DOWNLOADS=true` turns it off). Sizes are capped by bytes and by pixels. File names are sanitized and paths stay inside the sandbox. Provider API keys are sent only to their own API host. Google Images results come only through SerpApi or the Custom Search JSON API, never by scraping, and are marked as having unverified licences. Paid or premium results are excluded, and the server records every asset's licence and attribution.
+
 ## AI providers
 
 External services are used **only** when you set their credentials, and only by tools whose name says so (`generative_fill`, `generative_expand`, `generate_*`, `ai_replace_object`). They upload a JPEG of the canvas (and a mask) to that service.

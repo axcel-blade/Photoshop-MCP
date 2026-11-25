@@ -55,7 +55,7 @@ export function createServer(ctx: ToolContext): McpServer {
       "Every result states its source (photoshop | mock | server). Never claim visual inspection unless a tool returned a preview image (capture_preview). " +
       "Destructive tools need confirm: true after asking the user; files are never overwritten without overwrite: true. " +
       "Design plans (plan_design / generate_design) build editable layers; large designs and batch work accept background: true and return a jobId (wait_for_job). " +
-      "Tools tagged unsupported/requires_provider explain why and give an alternative. Start with photoshop_status.",
+      "Tools tagged unsupported/requires_provider explain why and give an alternative. Web images: search_images / search_stock_photos / search_icons / search_textures / search_transparent_images, check licence, then download_image or import_image_to_photoshop (prompt design_with_web_assets). Start with photoshop_status.",
   });
   registerAll(server, ctx);
   registerResources(server, ctx, SERVER_INFO);

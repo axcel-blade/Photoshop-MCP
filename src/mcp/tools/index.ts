@@ -19,6 +19,7 @@ import { registerExportTools } from "./export.js";
 import { registerDesignTools } from "./design.js";
 import { registerUiTools } from "./ui.js";
 import { registerJobTools } from "./jobs.js";
+import { registerAssetTools } from "./assets.js";
 
 let done = false;
 
@@ -72,4 +73,5 @@ export function defineAllTools(): void {
   registerDesignTools();
   registerUiTools();
   registerJobTools();
+  registerAssetTools();
 }

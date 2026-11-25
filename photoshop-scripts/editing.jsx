@@ -317,10 +317,14 @@ MCP.ops["mask.gradient"] = function (p) {
 /* ---------- adjustments / filters / styles / fills ---------- */
 MCP.ops["adjust.layer"] = function (p) {
   var d = MCP.getDoc(p.doc);
-  if (p.layer) MCP.selectLayer(MCP.getLayer(d, p.layer));
+  var target = p.layer ? MCP.getLayer(d, p.layer) : null;
+  if (target) MCP.selectLayer(target);
   if (!p.clip) MCP.aboveClipChain(d);
   MCP.play({ _obj: "make", _target: [{ _ref: "adjustmentLayer" }], using: { _obj: "adjustmentLayer", type: MCP.adjustmentType(p.kind, p.settings || {}) } }, p.kind + " adjustment");
   var l = d.activeLayer;
+  /* With a group selected Photoshop creates the layer INSIDE it, where a clip would only reach the group's top
+     child. "Above this layer" means above the group itself, so the clip applies to the whole group. */
+  if (target && target.typename === "LayerSet" && l.parent === target) l.move(target, ElementPlacement.PLACEBEFORE);
   if (p.name) l.name = p.name;
   if (p.opacity !== undefined) l.opacity = p.opacity;
   if (p.blendMode) MCP.setBlend(l, p.blendMode);
